@@ -1,0 +1,241 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shorts Player</title>
+<style>
+body,html{
+margin:0;
+padding:0;
+background:black;
+overflow:hidden;
+font-family:sans-serif;
+}
+
+#playerContainer{
+position:fixed;
+top:0;
+left:0;
+width:100vw;
+height:100vh;
+display:flex;
+align-items:center;
+justify-content:center;
+background:black;
+}
+
+#player{
+width:100vw;
+height:100vh;
+}
+
+.controls{
+position:fixed;
+top:10px;
+right:10px;
+color:white;
+font-size:22px;
+opacity:1;
+transition:opacity .3s;
+}
+
+.hidden{
+opacity:0;
+pointer-events:none;
+}
+
+button{
+background:rgba(0,0,0,0.5);
+border:none;
+color:white;
+padding:10px;
+border-radius:8px;
+font-size:18px;
+}
+
+#replay{
+position:fixed;
+bottom:30px;
+left:50%;
+transform:translateX(-50%);
+}
+</style>
+</head>
+
+<body>
+
+<div id="playerContainer">
+<div id="player"></div>
+</div>
+
+<div id="controls" class="controls">
+<button onclick="openSettings()">⚙</button>
+</div>
+
+<button id="replay" class="hidden" onclick="replay()">Replay</button>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script src="shorts_links.js"></script>
+
+<script>
+
+let savedLinks = JSON.parse(localStorage.getItem("shortLinks") || "[]")
+let videos = [...(window.shortLinks || []), ...savedLinks]
+
+let player
+let current = 0
+let loopSingle = true
+
+let startY = 0
+let uiVisible = true
+let hideTimer
+
+function onYouTubeIframeAPIReady(){
+loadVideo(current)
+}
+
+function loadVideo(i){
+
+if(!videos.length) return
+
+if(player){
+player.destroy()
+}
+
+let id = extractID(videos[i])
+
+player = new YT.Player('player',{
+videoId:id,
+playerVars:{
+autoplay:1,
+controls:0,
+rel:0,
+modestbranding:1
+},
+events:{
+'onReady':e=>{
+e.target.playVideo()
+resetHideTimer()
+},
+'onStateChange':onStateChange
+}
+})
+}
+
+function extractID(url){
+
+if(url.includes("shorts/")){
+return url.split("shorts/")[1].split("?")[0]
+}
+
+if(url.includes("v=")){
+return url.split("v=")[1].split("&")[0]
+}
+
+return url
+}
+
+function onStateChange(e){
+
+if(e.data===YT.PlayerState.ENDED){
+
+if(loopSingle){
+player.seekTo(0)
+player.playVideo()
+}else{
+nextVideo()
+}
+
+}
+}
+
+function nextVideo(){
+
+current++
+if(current>=videos.length) current=0
+loadVideo(current)
+
+}
+
+function prevVideo(){
+
+current--
+if(current<0) current=videos.length-1
+loadVideo(current)
+
+}
+
+function replay(){
+
+player.seekTo(0)
+player.playVideo()
+
+}
+
+document.addEventListener("touchstart",e=>{
+startY=e.changedTouches[0].screenY
+})
+
+document.addEventListener("touchend",e=>{
+
+let endY=e.changedTouches[0].screenY
+let diff=startY-endY
+
+if(Math.abs(diff)>60){
+
+if(diff>0) nextVideo()
+else prevVideo()
+
+}else{
+
+toggleUI()
+
+}
+
+})
+
+function toggleUI(){
+
+uiVisible=!uiVisible
+document.getElementById("controls").classList.toggle("hidden",!uiVisible)
+document.getElementById("replay").classList.toggle("hidden",!uiVisible)
+
+if(uiVisible) resetHideTimer()
+
+}
+
+function resetHideTimer(){
+
+clearTimeout(hideTimer)
+hideTimer=setTimeout(()=>{
+
+uiVisible=false
+document.getElementById("controls").classList.add("hidden")
+document.getElementById("replay").classList.add("hidden")
+
+},3000)
+
+}
+
+function openSettings(){
+
+let text=prompt("Paste YouTube links separated by line", savedLinks.join("\n"))
+
+if(text===null) return
+
+savedLinks=text.split("\n").map(v=>v.trim()).filter(v=>v)
+
+localStorage.setItem("shortLinks",JSON.stringify(savedLinks))
+
+videos=[...(window.shortLinks||[]),...savedLinks]
+
+current=0
+loadVideo(current)
+
+}
+
+</script>
+
+</body>
+</html>

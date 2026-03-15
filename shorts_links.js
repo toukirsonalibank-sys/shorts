@@ -1,4 +1,6 @@
-window.DEFAULT_SHORTS_LINKS = [
-  'https://youtube.com/shorts/Ay6qLrxWyWs',
-  'https://youtube.com/shorts/Pyoem3YrEAU?si=UuYuwrMcTwOlJOTS'
+
+// Built-in video links
+window.shortLinks = [
+"https://youtube.com/shorts/Ay6qLrxWyWs",
+"https://youtube.com/shorts/ZXQahDFN-Nk"
 ];
