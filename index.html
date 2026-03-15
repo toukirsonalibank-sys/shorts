@@ -1,743 +1,241 @@
+
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Shorts Player Preload</title>
-  <style>
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html, body {
-      margin: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #000;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      color: #fff;
-    }
-    #app, #playerWrap {
-      position: relative;
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-      background: #000;
-    }
-    .stage {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity .18s ease;
-      background: #000;
-    }
-    .stage.active {
-      opacity: 1;
-      pointer-events: auto;
-      z-index: 1;
-    }
-    .stage iframe {
-      width: 100% !important;
-      height: 100% !important;
-    }
-    #touchLayer {
-      position: absolute;
-      inset: 0;
-      z-index: 4;
-      background: transparent;
-    }
-    .chrome {
-      position: absolute;
-      inset: 0;
-      z-index: 8;
-      pointer-events: none;
-      opacity: 1;
-      transition: opacity .25s ease;
-    }
-    .chrome.hidden {
-      opacity: 0;
-    }
-    .topbar {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      right: 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .counter, .iconBtn, .pillBtn, .toast {
-      background: rgba(0,0,0,.38);
-      backdrop-filter: blur(10px);
-    }
-    .counter {
-      padding: 7px 12px;
-      border-radius: 999px;
-      font-size: 15px;
-      font-weight: 800;
-      pointer-events: auto;
-    }
-    .iconBtn {
-      width: 48px;
-      height: 48px;
-      border: none;
-      border-radius: 50%;
-      color: #fff;
-      font-size: 23px;
-      display: grid;
-      place-items: center;
-      cursor: pointer;
-      pointer-events: auto;
-    }
-    .controls {
-      position: absolute;
-      left: 50%;
-      bottom: 102px;
-      transform: translateX(-50%);
-      display: flex;
-      gap: 12px;
-      pointer-events: auto;
-    }
-    .pillBtn {
-      border: none;
-      border-radius: 999px;
-      padding: 14px 20px;
-      color: #fff;
-      font-size: 16px;
-      font-weight: 800;
-      cursor: pointer;
-    }
-    .bottomLabel {
-      position: absolute;
-      left: 16px;
-      right: 16px;
-      bottom: 28px;
-      font-size: 15px;
-      font-weight: 700;
-      text-shadow: 0 2px 10px rgba(0,0,0,.8);
-      pointer-events: none;
-    }
-    .toast {
-      position: absolute;
-      left: 50%;
-      top: 82px;
-      transform: translateX(-50%);
-      z-index: 15;
-      padding: 10px 14px;
-      border-radius: 12px;
-      font-size: 14px;
-      opacity: 0;
-      transition: opacity .2s ease;
-      pointer-events: none;
-    }
-    .toast.show { opacity: 1; }
-    .overlay {
-      position: absolute;
-      inset: 0;
-      z-index: 20;
-      background: rgba(0,0,0,.46);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 18px;
-    }
-    .overlay.show { display: flex; }
-    .modal {
-      width: min(92vw, 560px);
-      max-height: 86vh;
-      overflow: auto;
-      border-radius: 24px;
-      background: rgba(15,15,15,.96);
-      border: 1px solid rgba(255,255,255,.08);
-      box-shadow: 0 20px 60px rgba(0,0,0,.45);
-      padding: 22px;
-      backdrop-filter: blur(16px);
-    }
-    .modal h2 {
-      margin: 0 0 16px;
-      font-size: 28px;
-      line-height: 1.1;
-    }
-    .row { margin-bottom: 18px; }
-    .label { font-size: 18px; font-weight: 800; margin-bottom: 8px; }
-    .help { font-size: 14px; line-height: 1.45; opacity: .82; }
-    select, textarea {
-      width: 100%;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.06);
-      color: #fff;
-      border-radius: 16px;
-      padding: 14px;
-      font-size: 15px;
-      outline: none;
-    }
-    textarea {
-      min-height: 136px;
-      resize: vertical;
-      line-height: 1.5;
-    }
-    .switchRow {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-    }
-    .switch {
-      position: relative;
-      width: 64px;
-      height: 36px;
-      flex: 0 0 auto;
-    }
-    .switch input { display: none; }
-    .slider {
-      position: absolute;
-      inset: 0;
-      background: #444;
-      border-radius: 999px;
-      transition: .2s ease;
-      cursor: pointer;
-    }
-    .slider::before {
-      content: '';
-      position: absolute;
-      width: 28px;
-      height: 28px;
-      left: 4px;
-      top: 4px;
-      background: white;
-      border-radius: 50%;
-      transition: .2s ease;
-    }
-    .switch input:checked + .slider { background: #16a34a; }
-    .switch input:checked + .slider::before { transform: translateX(28px); }
-    .actions {
-      display: flex;
-      gap: 10px;
-      justify-content: flex-end;
-      margin-top: 10px;
-    }
-    .primary, .secondary {
-      border-radius: 14px;
-      font-weight: 800;
-      padding: 12px 16px;
-      cursor: pointer;
-    }
-    .primary {
-      border: none;
-      background: #fff;
-      color: #000;
-    }
-    .secondary {
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.06);
-      color: #fff;
-    }
-    .hint {
-      margin-top: 10px;
-      opacity: .75;
-      font-size: 14px;
-      line-height: 1.5;
-    }
-  </style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shorts Player</title>
+<style>
+body,html{
+margin:0;
+padding:0;
+background:black;
+overflow:hidden;
+font-family:sans-serif;
+}
+
+#playerContainer{
+position:fixed;
+top:0;
+left:0;
+width:100vw;
+height:100vh;
+display:flex;
+align-items:center;
+justify-content:center;
+background:black;
+}
+
+#player{
+width:100vw;
+height:100vh;
+}
+
+.controls{
+position:fixed;
+top:10px;
+right:10px;
+color:white;
+font-size:22px;
+opacity:1;
+transition:opacity .3s;
+}
+
+.hidden{
+opacity:0;
+pointer-events:none;
+}
+
+button{
+background:rgba(0,0,0,0.5);
+border:none;
+color:white;
+padding:10px;
+border-radius:8px;
+font-size:18px;
+}
+
+#replay{
+position:fixed;
+bottom:30px;
+left:50%;
+transform:translateX(-50%);
+}
+</style>
 </head>
+
 <body>
-  <div id="app">
-    <div id="playerWrap">
-      <div id="stageA" class="stage active"></div>
-      <div id="stageB" class="stage"></div>
-      <div id="touchLayer"></div>
-    </div>
 
-    <div id="chrome" class="chrome">
-      <div class="topbar">
-        <div class="counter" id="counter">1 / 1</div>
-        <button class="iconBtn" id="settingsBtn" aria-label="Settings">⚙</button>
-      </div>
+<div id="playerContainer">
+<div id="player"></div>
+</div>
 
-      <div class="controls">
-        <button class="pillBtn" id="replayBtn">↻ Replay</button>
-      </div>
+<div id="controls" class="controls">
+<button onclick="openSettings()">⚙</button>
+</div>
 
-      <div class="bottomLabel">YouTube Short</div>
-    </div>
+<button id="replay" class="hidden" onclick="replay()">Replay</button>
 
-    <div class="toast" id="toast"></div>
+<script src="https://www.youtube.com/iframe_api"></script>
+<script src="shorts_links.js"></script>
 
-    <div class="overlay" id="settingsOverlay">
-      <div class="modal" role="dialog" aria-modal="true" aria-label="Settings">
-        <h2>Settings</h2>
+<script>
 
-        <div class="row">
-          <div class="label">Playback mode</div>
-          <div class="help" style="margin-bottom:10px;">Choose whether a video repeats itself or moves to the next video when it ends.</div>
-          <select id="playbackMode">
-            <option value="loop">Loop single</option>
-            <option value="next">Go to next</option>
-          </select>
-        </div>
+let savedLinks = JSON.parse(localStorage.getItem("shortLinks") || "[]")
+let videos = [...(window.shortLinks || []), ...savedLinks]
 
-        <div class="row switchRow">
-          <div>
-            <div class="label">Start with sound</div>
-            <div class="help">Browsers may block autoplay with sound. First tap anywhere unlocks it.</div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="soundToggle" />
-            <span class="slider"></span>
-          </label>
-        </div>
+let player
+let current = 0
+let loopSingle = true
 
-        <div class="row">
-          <div class="label">Extra video links</div>
-          <div class="help" style="margin-bottom:10px;">These are added on top of the links from <b>shorts_links.js</b>. Put one YouTube Shorts or video link per line.</div>
-          <textarea id="videoLinks"></textarea>
-        </div>
+let startY = 0
+let uiVisible = true
+let hideTimer
 
-        <div class="actions">
-          <button class="secondary" id="closeSettings">Close</button>
-          <button class="primary" id="saveSettings">Save & Reload</button>
-        </div>
+function onYouTubeIframeAPIReady(){
+loadVideo(current)
+}
 
-        <div class="hint">Tap outside this box to close settings. Touch anywhere on the screen to show or hide the controls.</div>
-      </div>
-    </div>
-  </div>
+function loadVideo(i){
 
-  <script src="./shorts_links.js"></script>
-  <script>
-    const STORAGE_KEY = 'shorts-player-preload-v2';
-    const defaults = {
-      loopSingle: true,
-      startWithSound: false,
-      extraLinks: []
-    };
+if(!videos.length) return
 
-    let state = loadState();
-    let playlist = [];
-    let currentIndex = 0;
-    let apiReady = false;
-    let userInteracted = false;
-    let switching = false;
-    let touchStartY = null;
-    let hideUiTimer = null;
-    let currentPlayer = null;
-    let standbyPlayer = null;
-    let currentStageId = 'stageA';
-    let standbyStageId = 'stageB';
-    let currentReadyIndex = -1;
-    let standbyReadyIndex = -1;
+if(player){
+player.destroy()
+}
 
-    const chromeEl = document.getElementById('chrome');
-    const counterEl = document.getElementById('counter');
-    const toastEl = document.getElementById('toast');
-    const settingsOverlay = document.getElementById('settingsOverlay');
-    const playbackModeEl = document.getElementById('playbackMode');
-    const soundToggleEl = document.getElementById('soundToggle');
-    const videoLinksEl = document.getElementById('videoLinks');
+let id = extractID(videos[i])
 
-    function loadState() {
-      try {
-        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-        if (!saved) return structuredClone(defaults);
-        return {
-          loopSingle: typeof saved.loopSingle === 'boolean' ? saved.loopSingle : defaults.loopSingle,
-          startWithSound: typeof saved.startWithSound === 'boolean' ? saved.startWithSound : defaults.startWithSound,
-          extraLinks: Array.isArray(saved.extraLinks) ? saved.extraLinks : defaults.extraLinks
-        };
-      } catch {
-        return structuredClone(defaults);
-      }
-    }
+player = new YT.Player('player',{
+videoId:id,
+playerVars:{
+autoplay:1,
+controls:0,
+rel:0,
+modestbranding:1
+},
+events:{
+'onReady':e=>{
+e.target.playVideo()
+resetHideTimer()
+},
+'onStateChange':onStateChange
+}
+})
+}
 
-    function saveState() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }
+function extractID(url){
 
-    function extractYouTubeId(url) {
-      if (!url) return null;
-      const trimmed = String(url).trim();
-      if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+if(url.includes("shorts/")){
+return url.split("shorts/")[1].split("?")[0]
+}
 
-      const patterns = [
-        /(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
-        /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
-        /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
-        /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/
-      ];
+if(url.includes("v=")){
+return url.split("v=")[1].split("&")[0]
+}
 
-      for (const pattern of patterns) {
-        const match = trimmed.match(pattern);
-        if (match) return match[1];
-      }
+return url
+}
 
-      try {
-        const u = new URL(trimmed);
-        const v = u.searchParams.get('v');
-        if (v && /^[a-zA-Z0-9_-]{11}$/.test(v)) return v;
-      } catch {}
+function onStateChange(e){
 
-      return null;
-    }
+if(e.data===YT.PlayerState.ENDED){
 
-    function parseLinesToIds(lines) {
-      return String(lines || '')
-        .split(/\r?\n/)
-        .map(v => v.trim())
-        .filter(Boolean)
-        .map(extractYouTubeId)
-        .filter(Boolean);
-    }
+if(loopSingle){
+player.seekTo(0)
+player.playVideo()
+}else{
+nextVideo()
+}
 
-    function buildPlaylist() {
-      const baseLinks = Array.isArray(window.DEFAULT_SHORTS_LINKS) ? window.DEFAULT_SHORTS_LINKS : [];
-      const combinedIds = [];
-      const seen = new Set();
-      for (const raw of [...baseLinks, ...state.extraLinks]) {
-        const id = extractYouTubeId(raw);
-        if (id && !seen.has(id)) {
-          seen.add(id);
-          combinedIds.push({ id, title: 'YouTube Short' });
-        }
-      }
-      playlist = combinedIds.length ? combinedIds : [{ id: 'Ay6qLrxWyWs', title: 'YouTube Short' }];
-      if (currentIndex >= playlist.length) currentIndex = 0;
-    }
+}
+}
 
-    function showToast(text) {
-      toastEl.textContent = text;
-      toastEl.classList.add('show');
-      clearTimeout(showToast.timer);
-      showToast.timer = setTimeout(() => toastEl.classList.remove('show'), 1400);
-    }
+function nextVideo(){
 
-    function updateCounter() {
-      counterEl.textContent = `${currentIndex + 1} / ${playlist.length}`;
-    }
+current++
+if(current>=videos.length) current=0
+loadVideo(current)
 
-    function showUI() {
-      chromeEl.classList.remove('hidden');
-      scheduleHideUI();
-    }
+}
 
-    function hideUI() {
-      if (settingsOverlay.classList.contains('show')) return;
-      chromeEl.classList.add('hidden');
-    }
+function prevVideo(){
 
-    function scheduleHideUI() {
-      clearTimeout(hideUiTimer);
-      hideUiTimer = setTimeout(hideUI, 2400);
-    }
+current--
+if(current<0) current=videos.length-1
+loadVideo(current)
 
-    function effectiveMuteState() {
-      return !(state.startWithSound && userInteracted);
-    }
+}
 
-    function normalizeIndex(index) {
-      return ((index % playlist.length) + playlist.length) % playlist.length;
-    }
+function replay(){
 
-    function destroyPlayer(playerRef) {
-      if (!playerRef) return;
-      try { playerRef.stopVideo && playerRef.stopVideo(); } catch {}
-      try { playerRef.pauseVideo && playerRef.pauseVideo(); } catch {}
-      try { playerRef.destroy && playerRef.destroy(); } catch {}
-    }
+player.seekTo(0)
+player.playVideo()
 
-    function clearStage(stageId) {
-      const el = document.getElementById(stageId);
-      el.innerHTML = '';
-    }
+}
 
-    function createPlayer(stageId, videoIndex, forStandby) {
-      const mountId = `${stageId}-mount`;
-      const stage = document.getElementById(stageId);
-      stage.innerHTML = `<div id="${mountId}" style="width:100%;height:100%"></div>`;
-      const videoId = playlist[normalizeIndex(videoIndex)].id;
+document.addEventListener("touchstart",e=>{
+startY=e.changedTouches[0].screenY
+})
 
-      return new YT.Player(mountId, {
-        width: '100%',
-        height: '100%',
-        videoId,
-        playerVars: {
-          autoplay: forStandby ? 0 : 1,
-          controls: 0,
-          playsinline: 1,
-          rel: 0,
-          modestbranding: 1,
-          fs: 0,
-          iv_load_policy: 3,
-          cc_load_policy: 0,
-          mute: 1,
-          enablejsapi: 1
-        },
-        events: {
-          onReady: (event) => onAnyPlayerReady(event, videoIndex, forStandby),
-          onStateChange: (event) => onAnyPlayerStateChange(event, videoIndex, forStandby),
-          onError: () => onAnyPlayerError(videoIndex, forStandby)
-        }
-      });
-    }
+document.addEventListener("touchend",e=>{
 
-    function onAnyPlayerReady(event, videoIndex, forStandby) {
-      try {
-        event.target.mute();
-        if (forStandby) {
-          event.target.cueVideoById(playlist[normalizeIndex(videoIndex)].id);
-          standbyReadyIndex = normalizeIndex(videoIndex);
-        } else {
-          currentReadyIndex = normalizeIndex(videoIndex);
-          if (effectiveMuteState()) event.target.mute(); else event.target.unMute();
-          event.target.playVideo();
-        }
-      } catch {}
-      switching = false;
-      if (!forStandby) preloadNext();
-    }
+let endY=e.changedTouches[0].screenY
+let diff=startY-endY
 
-    function onAnyPlayerStateChange(event, videoIndex, forStandby) {
-      if (!window.YT || forStandby) return;
-      if (normalizeIndex(videoIndex) !== currentIndex) return;
-      if (event.data === YT.PlayerState.ENDED) {
-        if (state.loopSingle) {
-          replayVideo();
-        } else {
-          nextVideo();
-        }
-      }
-    }
+if(Math.abs(diff)>60){
 
-    function onAnyPlayerError(videoIndex, forStandby) {
-      if (forStandby) return;
-      showToast('Could not play. Skipping...');
-      nextVideo();
-    }
+if(diff>0) nextVideo()
+else prevVideo()
 
-    function initPlayers() {
-      buildPlaylist();
-      updateCounter();
-      destroyPlayer(currentPlayer);
-      destroyPlayer(standbyPlayer);
-      clearStage(currentStageId);
-      clearStage(standbyStageId);
-      currentReadyIndex = -1;
-      standbyReadyIndex = -1;
-      currentPlayer = createPlayer(currentStageId, currentIndex, false);
-      standbyPlayer = null;
-    }
+}else{
 
-    function preloadNext() {
-      if (!apiReady || playlist.length < 2) return;
-      const nextIndex = normalizeIndex(currentIndex + 1);
-      if (standbyPlayer && standbyReadyIndex === nextIndex) return;
-      destroyPlayer(standbyPlayer);
-      clearStage(standbyStageId);
-      standbyReadyIndex = -1;
-      standbyPlayer = createPlayer(standbyStageId, nextIndex, true);
-    }
+toggleUI()
 
-    function swapStages() {
-      const currentStage = document.getElementById(currentStageId);
-      const standbyStage = document.getElementById(standbyStageId);
-      currentStage.classList.remove('active');
-      standbyStage.classList.add('active');
-      [currentStageId, standbyStageId] = [standbyStageId, currentStageId];
-      [currentPlayer, standbyPlayer] = [standbyPlayer, currentPlayer];
-      [currentReadyIndex, standbyReadyIndex] = [standbyReadyIndex, currentReadyIndex];
-    }
+}
 
-    function goTo(index) {
-      if (!apiReady || !playlist.length || switching) return;
-      const targetIndex = normalizeIndex(index);
-      if (targetIndex === currentIndex && currentPlayer) {
-        try {
-          if (effectiveMuteState()) currentPlayer.mute(); else currentPlayer.unMute();
-          currentPlayer.playVideo();
-        } catch {}
-        return;
-      }
+})
 
-      switching = true;
-      showUI();
+function toggleUI(){
 
-      const targetIsStandby = standbyPlayer && standbyReadyIndex === targetIndex;
-      const oldCurrentPlayer = currentPlayer;
-      const oldCurrentStage = currentStageId;
+uiVisible=!uiVisible
+document.getElementById("controls").classList.toggle("hidden",!uiVisible)
+document.getElementById("replay").classList.toggle("hidden",!uiVisible)
 
-      if (targetIsStandby) {
-        currentIndex = targetIndex;
-        swapStages();
-        updateCounter();
-        try {
-          if (effectiveMuteState()) currentPlayer.mute(); else currentPlayer.unMute();
-          currentPlayer.seekTo(0, true);
-          currentPlayer.playVideo();
-        } catch {
-          destroyPlayer(currentPlayer);
-          clearStage(currentStageId);
-          currentPlayer = createPlayer(currentStageId, currentIndex, false);
-        }
-        destroyPlayer(oldCurrentPlayer);
-        clearStage(standbyStageId);
-        standbyPlayer = null;
-        standbyReadyIndex = -1;
-        preloadNext();
-        switching = false;
-        return;
-      }
+if(uiVisible) resetHideTimer()
 
-      currentIndex = targetIndex;
-      updateCounter();
-      destroyPlayer(currentPlayer);
-      clearStage(currentStageId);
-      currentPlayer = createPlayer(currentStageId, currentIndex, false);
-      destroyPlayer(standbyPlayer);
-      clearStage(standbyStageId);
-      standbyPlayer = null;
-      standbyReadyIndex = -1;
-      destroyPlayer(oldCurrentPlayer);
-      clearStage(oldCurrentStage);
-    }
+}
 
-    function nextVideo() {
-      goTo(currentIndex + 1);
-    }
+function resetHideTimer(){
 
-    function prevVideo() {
-      goTo(currentIndex - 1);
-    }
+clearTimeout(hideTimer)
+hideTimer=setTimeout(()=>{
 
-    function replayVideo() {
-      if (!currentPlayer) return;
-      try {
-        if (effectiveMuteState()) currentPlayer.mute(); else currentPlayer.unMute();
-        currentPlayer.seekTo(0, true);
-        currentPlayer.playVideo();
-        showToast('Replay');
-      } catch {
-        goTo(currentIndex);
-      }
-    }
+uiVisible=false
+document.getElementById("controls").classList.add("hidden")
+document.getElementById("replay").classList.add("hidden")
 
-    function unlockAudioIfNeeded() {
-      if (userInteracted) return;
-      userInteracted = true;
-      if (currentPlayer && state.startWithSound) {
-        try {
-          currentPlayer.unMute();
-          currentPlayer.playVideo();
-          showToast('Sound unlocked');
-        } catch {}
-      }
-    }
+},3000)
 
-    function openSettings() {
-      showUI();
-      playbackModeEl.value = state.loopSingle ? 'loop' : 'next';
-      soundToggleEl.checked = state.startWithSound;
-      videoLinksEl.value = state.extraLinks.join('\n');
-      settingsOverlay.classList.add('show');
-      clearTimeout(hideUiTimer);
-    }
+}
 
-    function closeSettings() {
-      settingsOverlay.classList.remove('show');
-      scheduleHideUI();
-    }
+function openSettings(){
 
-    function saveSettingsFromModal() {
-      const extraIds = parseLinesToIds(videoLinksEl.value);
-      state.loopSingle = playbackModeEl.value === 'loop';
-      state.startWithSound = soundToggleEl.checked;
-      state.extraLinks = extraIds.map(id => `https://youtube.com/shorts/${id}`);
-      saveState();
-      buildPlaylist();
-      closeSettings();
-      currentIndex = 0;
-      initPlayers();
-      showToast('Settings saved');
-    }
+let text=prompt("Paste YouTube links separated by line", savedLinks.join("\n"))
 
-    function handleSurfaceTouch() {
-      unlockAudioIfNeeded();
-      showUI();
-      if (currentPlayer) {
-        try {
-          const stateNow = currentPlayer.getPlayerState();
-          if (stateNow !== YT.PlayerState.PLAYING) currentPlayer.playVideo();
-        } catch {}
-      }
-    }
+if(text===null) return
 
-    document.getElementById('settingsBtn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      openSettings();
-    });
-    document.getElementById('closeSettings').addEventListener('click', closeSettings);
-    document.getElementById('saveSettings').addEventListener('click', saveSettingsFromModal);
-    document.getElementById('replayBtn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      handleSurfaceTouch();
-      replayVideo();
-    });
+savedLinks=text.split("\n").map(v=>v.trim()).filter(v=>v)
 
-    settingsOverlay.addEventListener('click', (e) => {
-      if (e.target === settingsOverlay) closeSettings();
-    });
+localStorage.setItem("shortLinks",JSON.stringify(savedLinks))
 
-    document.getElementById('touchLayer').addEventListener('click', () => {
-      if (settingsOverlay.classList.contains('show')) return;
-      handleSurfaceTouch();
-    });
+videos=[...(window.shortLinks||[]),...savedLinks]
 
-    window.addEventListener('wheel', (e) => {
-      if (settingsOverlay.classList.contains('show')) return;
-      handleSurfaceTouch();
-      if (Math.abs(e.deltaY) < 10) return;
-      if (e.deltaY > 0) nextVideo(); else prevVideo();
-    }, { passive: true });
+current=0
+loadVideo(current)
 
-    window.addEventListener('touchstart', (e) => {
-      if (settingsOverlay.classList.contains('show')) return;
-      handleSurfaceTouch();
-      touchStartY = e.changedTouches[0].clientY;
-    }, { passive: true });
+}
 
-    window.addEventListener('touchend', (e) => {
-      if (settingsOverlay.classList.contains('show')) return;
-      if (touchStartY === null) return;
-      const endY = e.changedTouches[0].clientY;
-      const diff = touchStartY - endY;
-      touchStartY = null;
-      if (Math.abs(diff) < 55) return;
-      if (diff > 0) nextVideo(); else prevVideo();
-    }, { passive: true });
+</script>
 
-    document.addEventListener('visibilitychange', () => {
-      if (!currentPlayer) return;
-      try {
-        if (document.hidden) currentPlayer.pauseVideo();
-        else currentPlayer.playVideo();
-      } catch {}
-    });
-
-    window.addEventListener('beforeunload', () => {
-      destroyPlayer(currentPlayer);
-      destroyPlayer(standbyPlayer);
-    });
-
-    function onYouTubeIframeAPIReady() {
-      apiReady = true;
-      initPlayers();
-      scheduleHideUI();
-    }
-
-    window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
-    buildPlaylist();
-    updateCounter();
-    scheduleHideUI();
-  </script>
-  <script src="https://www.youtube.com/iframe_api"></script>
 </body>
 </html>
