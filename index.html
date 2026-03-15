@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,40 +6,72 @@
 <title>Shorts Feed Demo</title>
 <style>
 *{box-sizing:border-box}
-html,body{margin:0;padding:0;height:100%;background:#000;color:#fff;font-family:Arial,Helvetica,sans-serif;overflow:hidden;touch-action:none}
+html,body{margin:0;padding:0;height:100%;background:#000;color:#fff;font-family:Arial,Helvetica,sans-serif;overflow:hidden}
 #app{position:relative;width:100%;height:100vh;overflow:hidden;background:#000}
 #slides{height:100%;width:100%;transition:transform .28s ease}
-.slide{height:100vh;width:100%;display:flex;align-items:center;justify-content:center;background:#000;position:relative;overflow:hidden}
-iframe,video{width:100%;height:100%;object-fit:cover;border:0;background:#000}
-.info{position:absolute;bottom:20px;left:20px;right:90px;z-index:4;text-shadow:0 2px 10px rgba(0,0,0,.65)}
-.title{font-size:22px;font-weight:bold;margin-bottom:6px}
-.caption{font-size:14px;color:#ccc;line-height:1.4}
-.actions{position:absolute;right:10px;bottom:100px;display:flex;flex-direction:column;gap:10px;z-index:6}
-.btn{width:50px;height:50px;border-radius:50%;background:#222;border:1px solid #444;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px}
-.counter{position:absolute;top:10px;right:10px;background:#222;padding:6px 10px;border-radius:20px;font-size:13px;z-index:6}
+.slide{height:100vh;width:100%;position:relative;overflow:hidden;background:#000}
+iframe,video{width:100%;height:100%;border:0;background:#000;object-fit:cover}
+.info{position:absolute;left:18px;right:18px;bottom:22px;z-index:3;text-shadow:0 2px 10px rgba(0,0,0,.7)}
+.title{font-size:22px;font-weight:700;margin-bottom:6px}
+.caption{font-size:14px;color:#d0d0d0;line-height:1.4}
+.counter{position:absolute;top:10px;right:62px;z-index:6;background:rgba(28,28,28,.72);padding:7px 11px;border-radius:999px;font-size:13px}
+.iconBtn{position:absolute;top:10px;right:10px;z-index:7;width:42px;height:42px;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(28,28,28,.72);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer}
 .swipeLayer{position:absolute;inset:0;z-index:5;background:transparent}
-.tapHint{position:absolute;left:50%;transform:translateX(-50%);bottom:12px;font-size:12px;color:#aaa;z-index:6;background:rgba(20,20,20,.55);padding:6px 10px;border-radius:999px}
-.navBtn{position:absolute;left:50%;transform:translateX(-50%);width:44px;height:44px;border-radius:50%;background:rgba(25,25,25,.72);border:1px solid rgba(255,255,255,.15);color:#fff;display:flex;align-items:center;justify-content:center;z-index:6;font-size:18px}
-#prevBtn{top:16px}
-#nextBtn{bottom:54px}
+.menu{position:absolute;top:60px;right:10px;z-index:10;width:min(290px, calc(100vw - 20px));background:rgba(20,20,20,.96);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:14px;display:none;box-shadow:0 18px 45px rgba(0,0,0,.45)}
+.menu.show{display:block}
+.menu h3{margin:0 0 12px;font-size:16px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0;padding:10px 0;border-top:1px solid rgba(255,255,255,.08)}
+.row:first-of-type{border-top:0;padding-top:0}
+.labelWrap{flex:1}
+.labelTitle{font-size:14px;font-weight:600}
+.labelSub{font-size:12px;color:#bdbdbd;margin-top:3px;line-height:1.35}
+select{background:#111;color:#fff;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:8px 10px;font-size:13px}
+.toggle{position:relative;width:52px;height:30px;border-radius:999px;background:#333;border:1px solid rgba(255,255,255,.18);cursor:pointer}
+.toggle.active{background:#1f6f46}
+.toggle::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .2s ease}
+.toggle.active::after{left:25px}
+.note{margin-top:10px;font-size:12px;color:#bdbdbd;line-height:1.4}
+.unlock{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9;background:rgba(0,0,0,.72);border:1px solid rgba(255,255,255,.16);color:#fff;padding:12px 16px;border-radius:14px;font-size:14px;display:none}
+.unlock.show{display:block}
 </style>
 </head>
 <body>
 <div id="app">
   <div id="slides"></div>
   <div class="counter" id="counter"></div>
-  <button class="navBtn" id="prevBtn">↑</button>
-  <button class="navBtn" id="nextBtn">↓</button>
-  <div class="actions">
-    <button class="btn" onclick="like()">❤</button>
-    <button class="btn" onclick="shareVideo()">↗</button>
-    <button class="btn" onclick="openSource()">⤴</button>
-  </div>
-  <div class="tapHint">Swipe anywhere or tap ↑ ↓</div>
+  <button class="iconBtn" id="settingsBtn">⚙</button>
   <div class="swipeLayer" id="swipeLayer"></div>
+  <div class="unlock" id="unlockMsg">Tap once to enable sound</div>
+
+  <div class="menu" id="menu">
+    <h3>Settings</h3>
+
+    <div class="row">
+      <div class="labelWrap">
+        <div class="labelTitle">Playback mode</div>
+        <div class="labelSub">Choose whether a video repeats itself or moves to the next video when it ends.</div>
+      </div>
+      <select id="playMode">
+        <option value="next">Go to next</option>
+        <option value="loop">Loop single</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <div class="labelWrap">
+        <div class="labelTitle">Start with sound</div>
+        <div class="labelSub">Browsers often block sound on first load until you tap once.</div>
+      </div>
+      <div class="toggle" id="soundToggle"></div>
+    </div>
+
+    <div class="note">Swipe up or down anywhere to change videos. Tap outside this box to close settings.</div>
+  </div>
 </div>
 
 <script>
+const STORAGE_KEY = "shorts_settings_v1";
+
 const videos = [
   {
     title:"YouTube Short",
@@ -57,6 +88,38 @@ const videos = [
 ];
 
 let index = 0;
+let startY = 0;
+let soundUnlocked = false;
+let settings = loadSettings();
+
+const slidesEl = document.getElementById("slides");
+const counterEl = document.getElementById("counter");
+const swipeLayer = document.getElementById("swipeLayer");
+const settingsBtn = document.getElementById("settingsBtn");
+const menu = document.getElementById("menu");
+const playModeEl = document.getElementById("playMode");
+const soundToggle = document.getElementById("soundToggle");
+const unlockMsg = document.getElementById("unlockMsg");
+
+playModeEl.value = settings.playMode;
+soundToggle.classList.toggle("active", settings.startWithSound);
+if(settings.startWithSound) unlockMsg.classList.add("show");
+
+function loadSettings(){
+  try{
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    return {
+      playMode: saved.playMode === "loop" ? "loop" : "next",
+      startWithSound: !!saved.startWithSound
+    };
+  }catch{
+    return { playMode:"next", startWithSound:false };
+  }
+}
+
+function saveSettings(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+}
 
 function extractYouTubeID(url){
   try{
@@ -79,48 +142,137 @@ function escapeHtml(s){
 }
 
 function render(){
-  const slides = document.getElementById("slides");
-  slides.innerHTML = "";
+  slidesEl.innerHTML = "";
 
-  videos.forEach((v) => {
+  videos.forEach((v, i) => {
     let media = "";
+
     if(v.type === "youtube"){
       const id = extractYouTubeID(v.url);
-      media = '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&mute=1&playsinline=1&controls=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>';
+      const muteVal = soundUnlocked && settings.startWithSound ? 0 : 1;
+      media = '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&mute=' + muteVal + '&playsinline=1&controls=1&rel=0&enablejsapi=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>';
     }else{
-      media = '<video src="' + v.url + '" autoplay muted loop playsinline webkit-playsinline></video>';
+      const loopAttr = settings.playMode === "loop" ? " loop" : "";
+      const mutedAttr = soundUnlocked && settings.startWithSound ? "" : " muted";
+      media = '<video class="mp4video" data-index="' + i + '" src="' + v.url + '" autoplay' + mutedAttr + loopAttr + ' playsinline webkit-playsinline></video>';
     }
 
-    slides.innerHTML += '<div class="slide">' + media + '<div class="info"><div class="title">' + escapeHtml(v.title) + '</div><div class="caption">' + escapeHtml(v.caption) + '</div></div></div>';
+    slidesEl.innerHTML += '<div class="slide">' + media + '<div class="info"><div class="title">' + escapeHtml(v.title) + '</div><div class="caption">' + escapeHtml(v.caption) + '</div></div></div>';
   });
 
+  attachVideoEndHandlers();
   update();
+  attemptSoundUnlockPlayback();
+}
+
+function attachVideoEndHandlers(){
+  const els = document.querySelectorAll(".mp4video");
+  els.forEach((videoEl) => {
+    videoEl.addEventListener("ended", () => {
+      if(settings.playMode === "next"){
+        if(index < videos.length - 1){
+          next();
+        }else{
+          index = 0;
+          update();
+          playCurrentMp4();
+        }
+      }
+    });
+  });
 }
 
 function update(){
-  document.getElementById("slides").style.transform = 'translateY(-' + (index * 100) + 'vh)';
-  document.getElementById("counter").innerText = (index + 1) + " / " + videos.length;
+  slidesEl.style.transform = 'translateY(-' + (index * 100) + 'vh)';
+  counterEl.innerText = (index + 1) + " / " + videos.length;
+  playCurrentMp4();
 }
 
-function next(){ if(index < videos.length - 1){ index++; update(); } }
-function prev(){ if(index > 0){ index--; update(); } }
-function like(){ alert("Liked!"); }
-function shareVideo(){ alert("Share link: " + videos[index].url); }
-function openSource(){ window.open(videos[index].url,"_blank"); }
+function playCurrentMp4(){
+  const videosEls = document.querySelectorAll(".mp4video");
+  videosEls.forEach((videoEl, i) => {
+    if(i === index){
+      if(soundUnlocked && settings.startWithSound){
+        videoEl.muted = false;
+      }else{
+        videoEl.muted = true;
+      }
+      videoEl.loop = settings.playMode === "loop";
+      try{ videoEl.play(); }catch(e){}
+    }else{
+      videoEl.pause();
+      try{ videoEl.currentTime = 0; }catch(e){}
+    }
+  });
+}
 
-document.getElementById("nextBtn").addEventListener("click", next);
-document.getElementById("prevBtn").addEventListener("click", prev);
+function attemptSoundUnlockPlayback(){
+  if(!(soundUnlocked && settings.startWithSound)) return;
+  playCurrentMp4();
+}
 
-let startY = 0;
-let endY = 0;
-const swipeLayer = document.getElementById("swipeLayer");
+function next(){
+  if(index < videos.length - 1){
+    index++;
+  }else{
+    index = 0;
+  }
+  update();
+}
+
+function prev(){
+  if(index > 0){
+    index--;
+  }else{
+    index = videos.length - 1;
+  }
+  update();
+}
+
+function unlockSoundFromGesture(){
+  if(soundUnlocked || !settings.startWithSound) return;
+  soundUnlocked = true;
+  unlockMsg.classList.remove("show");
+  render();
+}
+
+settingsBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  menu.classList.toggle("show");
+});
+
+document.addEventListener("click", (e) => {
+  if(!menu.contains(e.target) && e.target !== settingsBtn){
+    menu.classList.remove("show");
+  }
+});
+
+playModeEl.addEventListener("change", () => {
+  settings.playMode = playModeEl.value;
+  saveSettings();
+  render();
+});
+
+soundToggle.addEventListener("click", () => {
+  settings.startWithSound = !settings.startWithSound;
+  soundToggle.classList.toggle("active", settings.startWithSound);
+  if(settings.startWithSound){
+    unlockMsg.classList.add("show");
+  }else{
+    unlockMsg.classList.remove("show");
+  }
+  soundUnlocked = false;
+  saveSettings();
+  render();
+});
 
 swipeLayer.addEventListener("touchstart", function(e){
+  unlockSoundFromGesture();
   startY = e.touches[0].clientY;
 }, {passive:true});
 
 swipeLayer.addEventListener("touchend", function(e){
-  endY = e.changedTouches[0].clientY;
+  const endY = e.changedTouches[0].clientY;
   const diff = startY - endY;
   if(Math.abs(diff) < 40) return;
   if(diff > 0) next(); else prev();
@@ -139,6 +291,8 @@ document.addEventListener("wheel", function(e){
   if(e.deltaY > 0) next();
   if(e.deltaY < 0) prev();
 }, {passive:true});
+
+document.addEventListener("touchstart", unlockSoundFromGesture, {passive:true, once:false});
 
 render();
 </script>
