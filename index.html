@@ -3,207 +3,144 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Shorts Feed Demo</title>
 <style>
-body{
-margin:0;
-background:#000;
-color:#fff;
-font-family:Arial,Helvetica,sans-serif;
-overflow:hidden;
-}
-#slides{
-height:100vh;
-transition:transform .3s ease;
-}
-.slide{
-height:100vh;
-display:flex;
-align-items:center;
-justify-content:center;
-background:#000;
-position:relative;
-}
-iframe,video{
-width:100%;
-height:100%;
-object-fit:cover;
-border:0;
-}
-.info{
-position:absolute;
-bottom:20px;
-left:20px;
-right:90px;
-}
-.title{font-size:22px;font-weight:bold;margin-bottom:6px;}
-.caption{font-size:14px;color:#ccc;}
-.actions{
-position:absolute;
-right:10px;
-bottom:100px;
-display:flex;
-flex-direction:column;
-gap:10px;
-}
-.btn{
-width:50px;height:50px;border-radius:50%;
-background:#222;border:1px solid #444;
-display:flex;align-items:center;justify-content:center;
-cursor:pointer;font-size:20px;
-}
-.counter{
-position:absolute;
-top:10px;right:10px;
-background:#222;padding:6px 10px;border-radius:20px;
-font-size:13px;
-}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;background:#000;color:#fff;font-family:Arial,Helvetica,sans-serif;overflow:hidden;touch-action:none}
+#app{position:relative;width:100%;height:100vh;overflow:hidden;background:#000}
+#slides{height:100%;width:100%;transition:transform .28s ease}
+.slide{height:100vh;width:100%;display:flex;align-items:center;justify-content:center;background:#000;position:relative;overflow:hidden}
+iframe,video{width:100%;height:100%;object-fit:cover;border:0;background:#000}
+.info{position:absolute;bottom:20px;left:20px;right:90px;z-index:4;text-shadow:0 2px 10px rgba(0,0,0,.65)}
+.title{font-size:22px;font-weight:bold;margin-bottom:6px}
+.caption{font-size:14px;color:#ccc;line-height:1.4}
+.actions{position:absolute;right:10px;bottom:100px;display:flex;flex-direction:column;gap:10px;z-index:6}
+.btn{width:50px;height:50px;border-radius:50%;background:#222;border:1px solid #444;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px}
+.counter{position:absolute;top:10px;right:10px;background:#222;padding:6px 10px;border-radius:20px;font-size:13px;z-index:6}
+.swipeLayer{position:absolute;inset:0;z-index:5;background:transparent}
+.tapHint{position:absolute;left:50%;transform:translateX(-50%);bottom:12px;font-size:12px;color:#aaa;z-index:6;background:rgba(20,20,20,.55);padding:6px 10px;border-radius:999px}
+.navBtn{position:absolute;left:50%;transform:translateX(-50%);width:44px;height:44px;border-radius:50%;background:rgba(25,25,25,.72);border:1px solid rgba(255,255,255,.15);color:#fff;display:flex;align-items:center;justify-content:center;z-index:6;font-size:18px}
+#prevBtn{top:16px}
+#nextBtn{bottom:54px}
 </style>
 </head>
 <body>
-
-<div id="slides"></div>
-<div class="counter" id="counter"></div>
-
-<div class="actions">
-<div class="btn" onclick="like()">❤</div>
-<div class="btn" onclick="share()">↗</div>
-<div class="btn" onclick="openSource()">⤴</div>
+<div id="app">
+  <div id="slides"></div>
+  <div class="counter" id="counter"></div>
+  <button class="navBtn" id="prevBtn">↑</button>
+  <button class="navBtn" id="nextBtn">↓</button>
+  <div class="actions">
+    <button class="btn" onclick="like()">❤</button>
+    <button class="btn" onclick="shareVideo()">↗</button>
+    <button class="btn" onclick="openSource()">⤴</button>
+  </div>
+  <div class="tapHint">Swipe anywhere or tap ↑ ↓</div>
+  <div class="swipeLayer" id="swipeLayer"></div>
 </div>
 
 <script>
-
-const videos=[
-{
-title:"YouTube Short",
-caption:"User added YouTube Shorts video",
-type:"youtube",
-url:"https://youtube.com/shorts/Ay6qLrxWyWs"
-},
-{
-title:"Direct MP4 Sample",
-caption:"HTML5 video example",
-type:"mp4",
-url:"https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
-}
+const videos = [
+  {
+    title:"YouTube Short",
+    caption:"User added YouTube Shorts video",
+    type:"youtube",
+    url:"https://youtube.com/shorts/Ay6qLrxWyWs"
+  },
+  {
+    title:"Direct MP4 Sample",
+    caption:"HTML5 video example",
+    type:"mp4",
+    url:"https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
+  }
 ];
 
-let index=0;
+let index = 0;
 
 function extractYouTubeID(url){
-try{
-let u=new URL(url);
-
-if(u.pathname.startsWith("/shorts/")){
-return u.pathname.split("/shorts/")[1];
+  try{
+    const u = new URL(url);
+    if(u.pathname.startsWith("/shorts/")) return u.pathname.split("/shorts/")[1].split("/")[0];
+    if(u.hostname.includes("youtu.be")) return u.pathname.slice(1);
+    return u.searchParams.get("v");
+  }catch{
+    return null;
+  }
 }
 
-if(u.hostname.includes("youtu.be")){
-return u.pathname.slice(1);
-}
-
-return u.searchParams.get("v");
-}catch{
-return null;
-}
+function escapeHtml(s){
+  return String(s)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#39;");
 }
 
 function render(){
-const slides=document.getElementById("slides");
-slides.innerHTML="";
+  const slides = document.getElementById("slides");
+  slides.innerHTML = "";
 
-videos.forEach(v=>{
+  videos.forEach((v) => {
+    let media = "";
+    if(v.type === "youtube"){
+      const id = extractYouTubeID(v.url);
+      media = '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&mute=1&playsinline=1&controls=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>';
+    }else{
+      media = '<video src="' + v.url + '" autoplay muted loop playsinline webkit-playsinline></video>';
+    }
 
-let media="";
+    slides.innerHTML += '<div class="slide">' + media + '<div class="info"><div class="title">' + escapeHtml(v.title) + '</div><div class="caption">' + escapeHtml(v.caption) + '</div></div></div>';
+  });
 
-if(v.type==="youtube"){
-
-let id=extractYouTubeID(v.url);
-
-media=`<iframe 
-src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=1&playsinline=1&controls=1&rel=0"
-allow="autoplay; encrypted-media; picture-in-picture"
-allowfullscreen>
-</iframe>`;
-
-}else{
-
-media=`<video src="${v.url}" autoplay muted loop playsinline></video>`;
-
-}
-
-slides.innerHTML+=`
-<div class="slide">
-${media}
-<div class="info">
-<div class="title">${v.title}</div>
-<div class="caption">${v.caption}</div>
-</div>
-</div>`;
-
-});
-
-update();
-
+  update();
 }
 
 function update(){
-document.getElementById("slides").style.transform=`translateY(-${index*100}vh)`;
-document.getElementById("counter").innerText=(index+1)+" / "+videos.length;
+  document.getElementById("slides").style.transform = 'translateY(-' + (index * 100) + 'vh)';
+  document.getElementById("counter").innerText = (index + 1) + " / " + videos.length;
 }
 
-function next(){
-if(index<videos.length-1){
-index++;
-update();
-}
-}
+function next(){ if(index < videos.length - 1){ index++; update(); } }
+function prev(){ if(index > 0){ index--; update(); } }
+function like(){ alert("Liked!"); }
+function shareVideo(){ alert("Share link: " + videos[index].url); }
+function openSource(){ window.open(videos[index].url,"_blank"); }
 
-function prev(){
-if(index>0){
-index--;
-update();
-}
-}
+document.getElementById("nextBtn").addEventListener("click", next);
+document.getElementById("prevBtn").addEventListener("click", prev);
 
-function like(){
-alert("Liked!");
-}
+let startY = 0;
+let endY = 0;
+const swipeLayer = document.getElementById("swipeLayer");
 
-function share(){
-alert("Share link: "+videos[index].url);
-}
+swipeLayer.addEventListener("touchstart", function(e){
+  startY = e.touches[0].clientY;
+}, {passive:true});
 
-function openSource(){
-window.open(videos[index].url,"_blank");
-}
+swipeLayer.addEventListener("touchend", function(e){
+  endY = e.changedTouches[0].clientY;
+  const diff = startY - endY;
+  if(Math.abs(diff) < 40) return;
+  if(diff > 0) next(); else prev();
+}, {passive:true});
 
-let startY=0;
-
-window.addEventListener("touchstart",e=>{
-startY=e.touches[0].clientY;
+document.addEventListener("keydown", function(e){
+  if(e.key === "ArrowDown") next();
+  if(e.key === "ArrowUp") prev();
 });
 
-window.addEventListener("touchend",e=>{
-
-let endY=e.changedTouches[0].clientY;
-
-if(startY-endY>50) next();
-if(endY-startY>50) prev();
-
-});
-
-window.addEventListener("keydown",e=>{
-
-if(e.key==="ArrowDown") next();
-if(e.key==="ArrowUp") prev();
-
-});
+let wheelBusy = false;
+document.addEventListener("wheel", function(e){
+  if(wheelBusy) return;
+  wheelBusy = true;
+  setTimeout(function(){ wheelBusy = false; }, 250);
+  if(e.deltaY > 0) next();
+  if(e.deltaY < 0) prev();
+}, {passive:true});
 
 render();
-
 </script>
-
 </body>
 </html>
