@@ -1,300 +1,609 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Shorts Feed Demo</title>
-<style>
-*{box-sizing:border-box}
-html,body{margin:0;padding:0;height:100%;background:#000;color:#fff;font-family:Arial,Helvetica,sans-serif;overflow:hidden}
-#app{position:relative;width:100%;height:100vh;overflow:hidden;background:#000}
-#slides{height:100%;width:100%;transition:transform .28s ease}
-.slide{height:100vh;width:100%;position:relative;overflow:hidden;background:#000}
-iframe,video{width:100%;height:100%;border:0;background:#000;object-fit:cover}
-.info{position:absolute;left:18px;right:18px;bottom:22px;z-index:3;text-shadow:0 2px 10px rgba(0,0,0,.7)}
-.title{font-size:22px;font-weight:700;margin-bottom:6px}
-.caption{font-size:14px;color:#d0d0d0;line-height:1.4}
-.counter{position:absolute;top:10px;right:62px;z-index:6;background:rgba(28,28,28,.72);padding:7px 11px;border-radius:999px;font-size:13px}
-.iconBtn{position:absolute;top:10px;right:10px;z-index:7;width:42px;height:42px;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(28,28,28,.72);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer}
-.swipeLayer{position:absolute;inset:0;z-index:5;background:transparent}
-.menu{position:absolute;top:60px;right:10px;z-index:10;width:min(290px, calc(100vw - 20px));background:rgba(20,20,20,.96);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:14px;display:none;box-shadow:0 18px 45px rgba(0,0,0,.45)}
-.menu.show{display:block}
-.menu h3{margin:0 0 12px;font-size:16px}
-.row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0;padding:10px 0;border-top:1px solid rgba(255,255,255,.08)}
-.row:first-of-type{border-top:0;padding-top:0}
-.labelWrap{flex:1}
-.labelTitle{font-size:14px;font-weight:600}
-.labelSub{font-size:12px;color:#bdbdbd;margin-top:3px;line-height:1.35}
-select{background:#111;color:#fff;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:8px 10px;font-size:13px}
-.toggle{position:relative;width:52px;height:30px;border-radius:999px;background:#333;border:1px solid rgba(255,255,255,.18);cursor:pointer}
-.toggle.active{background:#1f6f46}
-.toggle::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .2s ease}
-.toggle.active::after{left:25px}
-.note{margin-top:10px;font-size:12px;color:#bdbdbd;line-height:1.4}
-.unlock{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9;background:rgba(0,0,0,.72);border:1px solid rgba(255,255,255,.16);color:#fff;padding:12px 16px;border-radius:14px;font-size:14px;display:none}
-.unlock.show{display:block}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Shorts Player Fixed</title>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: #fff;
+    }
+    #app {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+      overflow: hidden;
+    }
+    #playerWrap {
+      position: absolute;
+      inset: 0;
+      background: #000;
+    }
+    #player {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .topbar {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .counter {
+      pointer-events: auto;
+      background: rgba(0,0,0,.45);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 15px;
+      font-weight: 700;
+      backdrop-filter: blur(10px);
+    }
+    .iconBtn {
+      pointer-events: auto;
+      width: 48px;
+      height: 48px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(0,0,0,.45);
+      color: #fff;
+      font-size: 23px;
+      display: grid;
+      place-items: center;
+      backdrop-filter: blur(10px);
+      cursor: pointer;
+    }
+    .bottomInfo {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 30px;
+      z-index: 8;
+      text-shadow: 0 2px 10px rgba(0,0,0,.85);
+      pointer-events: none;
+    }
+    .title {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 6px;
+      line-height: 1.25;
+    }
+    .meta {
+      font-size: 14px;
+      opacity: .92;
+    }
+    .controls {
+      position: absolute;
+      left: 50%;
+      bottom: 112px;
+      transform: translateX(-50%);
+      z-index: 9;
+      display: flex;
+      gap: 12px;
+    }
+    .pillBtn {
+      border: none;
+      border-radius: 999px;
+      padding: 14px 20px;
+      background: rgba(0,0,0,.45);
+      color: white;
+      font-size: 16px;
+      font-weight: 700;
+      backdrop-filter: blur(10px);
+      cursor: pointer;
+    }
+    .statusToast {
+      position: absolute;
+      left: 50%;
+      top: 86px;
+      transform: translateX(-50%);
+      z-index: 20;
+      background: rgba(0,0,0,.65);
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity .25s ease;
+      pointer-events: none;
+      backdrop-filter: blur(10px);
+    }
+    .statusToast.show { opacity: 1; }
+    .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 30;
+      background: rgba(0,0,0,.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .overlay.show { display: flex; }
+    .modal {
+      width: min(92vw, 560px);
+      max-height: 86vh;
+      overflow: auto;
+      border-radius: 24px;
+      background: rgba(15,15,15,.95);
+      border: 1px solid rgba(255,255,255,.08);
+      box-shadow: 0 20px 60px rgba(0,0,0,.45);
+      padding: 22px;
+      backdrop-filter: blur(16px);
+    }
+    .modal h2 {
+      margin: 0 0 16px;
+      font-size: 28px;
+      line-height: 1.1;
+    }
+    .row { margin-bottom: 18px; }
+    .label { font-size: 18px; font-weight: 800; margin-bottom: 8px; }
+    .help { font-size: 14px; line-height: 1.45; opacity: .82; }
+    select, textarea {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      color: #fff;
+      border-radius: 16px;
+      padding: 14px;
+      font-size: 15px;
+      outline: none;
+    }
+    textarea {
+      min-height: 136px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+    .switchRow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .switch {
+      position: relative;
+      width: 64px;
+      height: 36px;
+      flex: 0 0 auto;
+    }
+    .switch input { display: none; }
+    .slider {
+      position: absolute;
+      inset: 0;
+      background: #444;
+      border-radius: 999px;
+      transition: .2s ease;
+      cursor: pointer;
+    }
+    .slider::before {
+      content: '';
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      left: 4px;
+      top: 4px;
+      background: white;
+      border-radius: 50%;
+      transition: .2s ease;
+    }
+    .switch input:checked + .slider { background: #16a34a; }
+    .switch input:checked + .slider::before { transform: translateX(28px); }
+    .actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 10px;
+    }
+    .primary {
+      border: none;
+      border-radius: 14px;
+      background: #fff;
+      color: #000;
+      font-weight: 800;
+      padding: 12px 16px;
+      cursor: pointer;
+    }
+    .secondary {
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 14px;
+      background: rgba(255,255,255,.06);
+      color: #fff;
+      font-weight: 800;
+      padding: 12px 16px;
+      cursor: pointer;
+    }
+    .gestureHint {
+      margin-top: 10px;
+      opacity: .75;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .tapCover {
+      position: absolute;
+      inset: 0;
+      z-index: 7;
+      background: transparent;
+    }
+  </style>
 </head>
 <body>
-<div id="app">
-  <div id="slides"></div>
-  <div class="counter" id="counter"></div>
-  <button class="iconBtn" id="settingsBtn">⚙</button>
-  <div class="swipeLayer" id="swipeLayer"></div>
-  <div class="unlock" id="unlockMsg">Tap once to enable sound</div>
-
-  <div class="menu" id="menu">
-    <h3>Settings</h3>
-
-    <div class="row">
-      <div class="labelWrap">
-        <div class="labelTitle">Playback mode</div>
-        <div class="labelSub">Choose whether a video repeats itself or moves to the next video when it ends.</div>
-      </div>
-      <select id="playMode">
-        <option value="next">Go to next</option>
-        <option value="loop">Loop single</option>
-      </select>
+  <div id="app">
+    <div id="playerWrap">
+      <div id="player"></div>
+      <div class="tapCover" id="tapCover"></div>
     </div>
 
-    <div class="row">
-      <div class="labelWrap">
-        <div class="labelTitle">Start with sound</div>
-        <div class="labelSub">Browsers often block sound on first load until you tap once.</div>
-      </div>
-      <div class="toggle" id="soundToggle"></div>
+    <div class="topbar">
+      <div class="counter" id="counter">1 / 1</div>
+      <button class="iconBtn" id="settingsBtn" aria-label="Settings">⚙</button>
     </div>
 
-    <div class="note">Swipe up or down anywhere to change videos. Tap outside this box to close settings.</div>
+    <div class="controls">
+      <button class="pillBtn" id="replayBtn">↻ Replay</button>
+    </div>
+
+    <div class="bottomInfo">
+      <div class="title" id="videoTitle">YouTube Short</div>
+      <div class="meta" id="videoMeta">Swipe up or down to change video</div>
+    </div>
+
+    <div class="statusToast" id="toast"></div>
+
+    <div class="overlay" id="settingsOverlay">
+      <div class="modal" role="dialog" aria-modal="true" aria-label="Settings">
+        <h2>Settings</h2>
+
+        <div class="row">
+          <div class="label">Playback mode</div>
+          <div class="help" style="margin-bottom:10px;">Choose whether a video repeats itself or moves to the next video when it ends.</div>
+          <select id="playbackMode">
+            <option value="loop">Loop single</option>
+            <option value="next">Go to next</option>
+          </select>
+        </div>
+
+        <div class="row switchRow">
+          <div>
+            <div class="label">Start with sound</div>
+            <div class="help">Browsers may block autoplay with sound. First tap anywhere unlocks it.</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="soundToggle" />
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="row">
+          <div class="label">Video links</div>
+          <div class="help" style="margin-bottom:10px;">Put one YouTube Shorts or YouTube video link per line. Example:<br>https://youtube.com/shorts/Ay6qLrxWyWs</div>
+          <textarea id="videoLinks"></textarea>
+        </div>
+
+        <div class="actions">
+          <button class="secondary" id="closeSettings">Close</button>
+          <button class="primary" id="saveSettings">Save & Reload</button>
+        </div>
+
+        <div class="gestureHint">Swipe up or down anywhere to change videos. Tap outside this box to close settings.</div>
+      </div>
+    </div>
   </div>
-</div>
 
-<script>
-const STORAGE_KEY = "shorts_settings_v1";
-
-const videos = [
-  {
-    title:"YouTube Short",
-    caption:"User added YouTube Shorts video",
-    type:"youtube",
-    url:"https://youtube.com/shorts/Ay6qLrxWyWs"
-  },
-  {
-    title:"Direct MP4 Sample",
-    caption:"HTML5 video example",
-    type:"mp4",
-    url:"https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
-  }
-];
-
-let index = 0;
-let startY = 0;
-let soundUnlocked = false;
-let settings = loadSettings();
-
-const slidesEl = document.getElementById("slides");
-const counterEl = document.getElementById("counter");
-const swipeLayer = document.getElementById("swipeLayer");
-const settingsBtn = document.getElementById("settingsBtn");
-const menu = document.getElementById("menu");
-const playModeEl = document.getElementById("playMode");
-const soundToggle = document.getElementById("soundToggle");
-const unlockMsg = document.getElementById("unlockMsg");
-
-playModeEl.value = settings.playMode;
-soundToggle.classList.toggle("active", settings.startWithSound);
-if(settings.startWithSound) unlockMsg.classList.add("show");
-
-function loadSettings(){
-  try{
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-    return {
-      playMode: saved.playMode === "loop" ? "loop" : "next",
-      startWithSound: !!saved.startWithSound
+  <script>
+    const STORAGE_KEY = 'shorts-player-fixed-v1';
+    const defaults = {
+      loopSingle: true,
+      startWithSound: false,
+      videos: [
+        { title: 'The Stronger a Person is, The Less He...', source: 'YouTube Short', id: 'Ay6qLrxWyWs' }
+      ]
     };
-  }catch{
-    return { playMode:"next", startWithSound:false };
-  }
-}
 
-function saveSettings(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-}
+    let state = loadState();
+    let currentIndex = 0;
+    let player = null;
+    let apiReady = false;
+    let userInteracted = false;
+    let touchStartY = null;
+    let switching = false;
 
-function extractYouTubeID(url){
-  try{
-    const u = new URL(url);
-    if(u.pathname.startsWith("/shorts/")) return u.pathname.split("/shorts/")[1].split("/")[0];
-    if(u.hostname.includes("youtu.be")) return u.pathname.slice(1);
-    return u.searchParams.get("v");
-  }catch{
-    return null;
-  }
-}
+    const counterEl = document.getElementById('counter');
+    const titleEl = document.getElementById('videoTitle');
+    const metaEl = document.getElementById('videoMeta');
+    const toastEl = document.getElementById('toast');
+    const settingsOverlay = document.getElementById('settingsOverlay');
+    const playbackModeEl = document.getElementById('playbackMode');
+    const soundToggleEl = document.getElementById('soundToggle');
+    const videoLinksEl = document.getElementById('videoLinks');
+    const tapCover = document.getElementById('tapCover');
 
-function escapeHtml(s){
-  return String(s)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#39;");
-}
-
-function render(){
-  slidesEl.innerHTML = "";
-
-  videos.forEach((v, i) => {
-    let media = "";
-
-    if(v.type === "youtube"){
-      const id = extractYouTubeID(v.url);
-      const muteVal = soundUnlocked && settings.startWithSound ? 0 : 1;
-      media = '<iframe src="https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&mute=' + muteVal + '&playsinline=1&controls=1&rel=0&enablejsapi=1" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>';
-    }else{
-      const loopAttr = settings.playMode === "loop" ? " loop" : "";
-      const mutedAttr = soundUnlocked && settings.startWithSound ? "" : " muted";
-      media = '<video class="mp4video" data-index="' + i + '" src="' + v.url + '" autoplay' + mutedAttr + loopAttr + ' playsinline webkit-playsinline></video>';
+    function loadState() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+        if (!saved) return structuredClone(defaults);
+        return {
+          loopSingle: typeof saved.loopSingle === 'boolean' ? saved.loopSingle : defaults.loopSingle,
+          startWithSound: typeof saved.startWithSound === 'boolean' ? saved.startWithSound : defaults.startWithSound,
+          videos: Array.isArray(saved.videos) && saved.videos.length ? saved.videos : defaults.videos
+        };
+      } catch {
+        return structuredClone(defaults);
+      }
     }
 
-    slidesEl.innerHTML += '<div class="slide">' + media + '<div class="info"><div class="title">' + escapeHtml(v.title) + '</div><div class="caption">' + escapeHtml(v.caption) + '</div></div></div>';
-  });
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
 
-  attachVideoEndHandlers();
-  update();
-  attemptSoundUnlockPlayback();
-}
+    function extractYouTubeId(url) {
+      if (!url) return null;
+      const trimmed = url.trim();
 
-function attachVideoEndHandlers(){
-  const els = document.querySelectorAll(".mp4video");
-  els.forEach((videoEl) => {
-    videoEl.addEventListener("ended", () => {
-      if(settings.playMode === "next"){
-        if(index < videos.length - 1){
-          next();
-        }else{
-          index = 0;
-          update();
-          playCurrentMp4();
+      if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+
+      const patterns = [
+        /(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+        /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
+        /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+        /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/
+      ];
+
+      for (const pattern of patterns) {
+        const match = trimmed.match(pattern);
+        if (match) return match[1];
+      }
+
+      try {
+        const u = new URL(trimmed);
+        const v = u.searchParams.get('v');
+        if (v && /^[a-zA-Z0-9_-]{11}$/.test(v)) return v;
+      } catch {}
+
+      return null;
+    }
+
+    function parseVideoLines(text) {
+      const lines = text.split(/\r?\n/).map(v => v.trim()).filter(Boolean);
+      const videos = [];
+      for (const line of lines) {
+        const id = extractYouTubeId(line);
+        if (id) {
+          videos.push({ title: 'YouTube Short', source: line, id });
         }
       }
-    });
-  });
-}
-
-function update(){
-  slidesEl.style.transform = 'translateY(-' + (index * 100) + 'vh)';
-  counterEl.innerText = (index + 1) + " / " + videos.length;
-  playCurrentMp4();
-}
-
-function playCurrentMp4(){
-  const videosEls = document.querySelectorAll(".mp4video");
-  videosEls.forEach((videoEl, i) => {
-    if(i === index){
-      if(soundUnlocked && settings.startWithSound){
-        videoEl.muted = false;
-      }else{
-        videoEl.muted = true;
-      }
-      videoEl.loop = settings.playMode === "loop";
-      try{ videoEl.play(); }catch(e){}
-    }else{
-      videoEl.pause();
-      try{ videoEl.currentTime = 0; }catch(e){}
+      return videos;
     }
-  });
-}
 
-function attemptSoundUnlockPlayback(){
-  if(!(soundUnlocked && settings.startWithSound)) return;
-  playCurrentMp4();
-}
+    function updateUI() {
+      const total = state.videos.length || 1;
+      const currentVideo = state.videos[currentIndex] || { title: 'YouTube Short', source: '' };
+      counterEl.textContent = `${currentIndex + 1} / ${total}`;
+      titleEl.textContent = currentVideo.title || 'YouTube Short';
+      metaEl.textContent = currentVideo.source || 'Swipe up or down to change video';
+    }
 
-function next(){
-  if(index < videos.length - 1){
-    index++;
-  }else{
-    index = 0;
-  }
-  update();
-}
+    function showToast(text) {
+      toastEl.textContent = text;
+      toastEl.classList.add('show');
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toastEl.classList.remove('show'), 1600);
+    }
 
-function prev(){
-  if(index > 0){
-    index--;
-  }else{
-    index = videos.length - 1;
-  }
-  update();
-}
+    function stopAndDestroyPlayer() {
+      if (!player) return;
+      try { player.stopVideo && player.stopVideo(); } catch {}
+      try { player.pauseVideo && player.pauseVideo(); } catch {}
+      try { player.destroy && player.destroy(); } catch {}
+      player = null;
+      const holder = document.getElementById('player');
+      holder.innerHTML = '';
+    }
 
-function unlockSoundFromGesture(){
-  if(soundUnlocked || !settings.startWithSound) return;
-  soundUnlocked = true;
-  unlockMsg.classList.remove("show");
-  render();
-}
+    function effectiveMuteState() {
+      return !(state.startWithSound && userInteracted);
+    }
 
-settingsBtn.addEventListener("click", (e) => {
-  e.stopPropagation();
-  menu.classList.toggle("show");
-});
+    function loadVideo(index) {
+      if (!apiReady || !window.YT || !YT.Player || !state.videos.length) return;
+      currentIndex = ((index % state.videos.length) + state.videos.length) % state.videos.length;
+      switching = true;
+      stopAndDestroyPlayer();
+      updateUI();
 
-document.addEventListener("click", (e) => {
-  if(!menu.contains(e.target) && e.target !== settingsBtn){
-    menu.classList.remove("show");
-  }
-});
+      const videoId = state.videos[currentIndex].id;
+      player = new YT.Player('player', {
+        width: '100%',
+        height: '100%',
+        videoId,
+        playerVars: {
+          autoplay: 1,
+          controls: 0,
+          playsinline: 1,
+          rel: 0,
+          modestbranding: 1,
+          fs: 0,
+          iv_load_policy: 3,
+          cc_load_policy: 0,
+          mute: effectiveMuteState() ? 1 : 0
+        },
+        events: {
+          onReady: onPlayerReady,
+          onStateChange: onPlayerStateChange,
+          onError: onPlayerError
+        }
+      });
+    }
 
-playModeEl.addEventListener("change", () => {
-  settings.playMode = playModeEl.value;
-  saveSettings();
-  render();
-});
+    function onPlayerReady(event) {
+      try {
+        if (effectiveMuteState()) {
+          event.target.mute();
+        } else {
+          event.target.unMute();
+        }
+        event.target.playVideo();
+      } catch {}
+      switching = false;
+    }
 
-soundToggle.addEventListener("click", () => {
-  settings.startWithSound = !settings.startWithSound;
-  soundToggle.classList.toggle("active", settings.startWithSound);
-  if(settings.startWithSound){
-    unlockMsg.classList.add("show");
-  }else{
-    unlockMsg.classList.remove("show");
-  }
-  soundUnlocked = false;
-  saveSettings();
-  render();
-});
+    function onPlayerStateChange(event) {
+      if (!window.YT) return;
+      if (event.data === YT.PlayerState.ENDED) {
+        if (state.loopSingle) {
+          try {
+            player.seekTo(0, true);
+            player.playVideo();
+          } catch {
+            loadVideo(currentIndex);
+          }
+        } else {
+          nextVideo();
+        }
+      }
+    }
 
-swipeLayer.addEventListener("touchstart", function(e){
-  unlockSoundFromGesture();
-  startY = e.touches[0].clientY;
-}, {passive:true});
+    function onPlayerError() {
+      showToast('Could not play this video. Skipping...');
+      nextVideo();
+    }
 
-swipeLayer.addEventListener("touchend", function(e){
-  const endY = e.changedTouches[0].clientY;
-  const diff = startY - endY;
-  if(Math.abs(diff) < 40) return;
-  if(diff > 0) next(); else prev();
-}, {passive:true});
+    function nextVideo() {
+      if (!state.videos.length || switching) return;
+      loadVideo(currentIndex + 1);
+    }
 
-document.addEventListener("keydown", function(e){
-  if(e.key === "ArrowDown") next();
-  if(e.key === "ArrowUp") prev();
-});
+    function prevVideo() {
+      if (!state.videos.length || switching) return;
+      loadVideo(currentIndex - 1);
+    }
 
-let wheelBusy = false;
-document.addEventListener("wheel", function(e){
-  if(wheelBusy) return;
-  wheelBusy = true;
-  setTimeout(function(){ wheelBusy = false; }, 250);
-  if(e.deltaY > 0) next();
-  if(e.deltaY < 0) prev();
-}, {passive:true});
+    function replayVideo() {
+      if (!player) return;
+      try {
+        player.seekTo(0, true);
+        player.playVideo();
+        showToast('Replay');
+      } catch {
+        loadVideo(currentIndex);
+      }
+    }
 
-document.addEventListener("touchstart", unlockSoundFromGesture, {passive:true, once:false});
+    function unlockAudioIfNeeded() {
+      if (userInteracted) return;
+      userInteracted = true;
+      if (player && state.startWithSound) {
+        try {
+          player.unMute();
+          player.playVideo();
+          showToast('Sound unlocked');
+        } catch {}
+      }
+    }
 
-render();
-</script>
+    function openSettings() {
+      playbackModeEl.value = state.loopSingle ? 'loop' : 'next';
+      soundToggleEl.checked = state.startWithSound;
+      videoLinksEl.value = state.videos.map(v => `https://youtube.com/shorts/${v.id}`).join('\n');
+      settingsOverlay.classList.add('show');
+    }
+
+    function closeSettings() {
+      settingsOverlay.classList.remove('show');
+    }
+
+    function saveSettingsFromModal() {
+      const parsedVideos = parseVideoLines(videoLinksEl.value);
+      if (!parsedVideos.length) {
+        alert('Please add at least one valid YouTube or Shorts link.');
+        return;
+      }
+      state.loopSingle = playbackModeEl.value === 'loop';
+      state.startWithSound = soundToggleEl.checked;
+      state.videos = parsedVideos;
+      saveState();
+      closeSettings();
+      currentIndex = 0;
+      loadVideo(currentIndex);
+      showToast('Settings saved');
+    }
+
+    document.getElementById('settingsBtn').addEventListener('click', openSettings);
+    document.getElementById('closeSettings').addEventListener('click', closeSettings);
+    document.getElementById('saveSettings').addEventListener('click', saveSettingsFromModal);
+    document.getElementById('replayBtn').addEventListener('click', replayVideo);
+
+    settingsOverlay.addEventListener('click', (e) => {
+      if (e.target === settingsOverlay) closeSettings();
+    });
+
+    tapCover.addEventListener('click', () => {
+      unlockAudioIfNeeded();
+      if (player) {
+        try {
+          const stateNow = player.getPlayerState();
+          if (stateNow !== YT.PlayerState.PLAYING) player.playVideo();
+        } catch {}
+      }
+    });
+
+    window.addEventListener('wheel', (e) => {
+      if (settingsOverlay.classList.contains('show')) return;
+      unlockAudioIfNeeded();
+      if (Math.abs(e.deltaY) < 10) return;
+      if (e.deltaY > 0) nextVideo(); else prevVideo();
+    }, { passive: true });
+
+    window.addEventListener('touchstart', (e) => {
+      if (settingsOverlay.classList.contains('show')) return;
+      unlockAudioIfNeeded();
+      touchStartY = e.changedTouches[0].clientY;
+    }, { passive: true });
+
+    window.addEventListener('touchend', (e) => {
+      if (settingsOverlay.classList.contains('show')) return;
+      if (touchStartY === null) return;
+      const endY = e.changedTouches[0].clientY;
+      const diff = touchStartY - endY;
+      touchStartY = null;
+      if (Math.abs(diff) < 50) return;
+      if (diff > 0) nextVideo(); else prevVideo();
+    }, { passive: true });
+
+    document.addEventListener('visibilitychange', () => {
+      if (!player) return;
+      try {
+        if (document.hidden) {
+          player.pauseVideo();
+        } else {
+          player.playVideo();
+        }
+      } catch {}
+    });
+
+    window.addEventListener('beforeunload', stopAndDestroyPlayer);
+
+    updateUI();
+
+    function onYouTubeIframeAPIReady() {
+      apiReady = true;
+      loadVideo(currentIndex);
+    }
+
+    window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+  </script>
+  <script src="https://www.youtube.com/iframe_api"></script>
 </body>
 </html>
