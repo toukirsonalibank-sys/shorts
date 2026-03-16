@@ -1,85 +1,178 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Tool Launcher</title>
-
 <style>
-
+:root{
+  --bg1:#0b1220;
+  --bg2:#111827;
+  --card:rgba(255,255,255,.08);
+  --card-border:rgba(255,255,255,.12);
+  --text:#f8fafc;
+  --muted:#94a3b8;
+  --accent:#60a5fa;
+  --accent2:#818cf8;
+  --shadow:0 20px 50px rgba(0,0,0,.35);
+}
+*{
+  box-sizing:border-box;
+  -webkit-tap-highlight-color:transparent;
+}
+html,body{
+  width:100%;
+  height:100%;
+  margin:0;
+  overflow:hidden;
+}
 body{
-margin:0;
-font-family:Arial, sans-serif;
-background:#111;
-color:white;
-display:flex;
-justify-content:center;
-align-items:center;
-height:100vh;
+  font-family:Arial, sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(96,165,250,.20), transparent 28%),
+    radial-gradient(circle at top right, rgba(129,140,248,.16), transparent 28%),
+    linear-gradient(160deg, var(--bg1), var(--bg2));
+  touch-action:pan-y;
 }
-
+.app{
+  height:100dvh;
+  overflow:auto;
+  padding:22px 18px 28px;
+}
+.wrap{
+  max-width:900px;
+  margin:0 auto;
+}
+.header{
+  margin-bottom:18px;
+}
+.title{
+  font-size:28px;
+  font-weight:700;
+  letter-spacing:.2px;
+  margin:0 0 6px;
+}
+.subtitle{
+  margin:0;
+  color:var(--muted);
+  font-size:14px;
+}
 .grid{
-display:grid;
-grid-template-columns:repeat(auto-fit,120px);
-gap:20px;
-padding:20px;
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
+  gap:14px;
 }
-
 .tile{
-width:120px;
-height:120px;
-background:#1e1e1e;
-border-radius:12px;
-display:flex;
-align-items:center;
-justify-content:center;
-text-align:center;
-font-size:16px;
-cursor:pointer;
-transition:.2s;
-user-select:none;
+  position:relative;
+  min-height:140px;
+  border:none;
+  border-radius:24px;
+  padding:16px;
+  color:var(--text);
+  text-align:left;
+  cursor:pointer;
+  background:linear-gradient(180deg, rgba(255,255,255,.11), rgba(255,255,255,.06));
+  border:1px solid var(--card-border);
+  box-shadow:var(--shadow);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  transition:transform .16s ease, border-color .16s ease, background .16s ease;
 }
-
-.tile:hover{
-background:#333;
-transform:scale(1.05);
-}
-
 .tile:active{
-transform:scale(.95);
+  transform:scale(.98);
 }
-
+.tile .icon{
+  width:48px;
+  height:48px;
+  border-radius:16px;
+  display:grid;
+  place-items:center;
+  font-size:22px;
+  background:linear-gradient(135deg, rgba(96,165,250,.22), rgba(129,140,248,.22));
+  border:1px solid rgba(255,255,255,.12);
+}
+.tile .name{
+  font-size:18px;
+  font-weight:700;
+  line-height:1.2;
+}
+.tile .desc{
+  font-size:12px;
+  color:var(--muted);
+  line-height:1.35;
+}
+.tile.primary{
+  background:linear-gradient(180deg, rgba(96,165,250,.22), rgba(129,140,248,.16));
+  border-color:rgba(125,211,252,.28);
+}
+.footer{
+  margin-top:18px;
+  color:var(--muted);
+  font-size:12px;
+  text-align:center;
+}
+@media (hover:hover){
+  .tile:hover{
+    transform:translateY(-2px);
+    border-color:rgba(255,255,255,.22);
+  }
+}
 </style>
 </head>
-
 <body>
+  <div class="app">
+    <div class="wrap">
+      <div class="header">
+        <h1 class="title">My Tools</h1>
+        <p class="subtitle">Tap a tile to open a tool</p>
+      </div>
 
-<div class="grid">
+      <div class="grid">
+        <button class="tile primary" onclick="openPage('shorts.html')" aria-label="Open Shorts">
+          <div class="icon">▶</div>
+          <div>
+            <div class="name">Shorts</div>
+            <div class="desc">Open your vertical video player</div>
+          </div>
+        </button>
 
-<div class="tile" onclick="openPage('shorts.html')">
-Shorts
-</div>
+        <button class="tile" onclick="openPage('tool1.html')" aria-label="Open Tool 1">
+          <div class="icon">◻</div>
+          <div>
+            <div class="name">Tool 1</div>
+            <div class="desc">Reserved for future HTML tool</div>
+          </div>
+        </button>
 
-<div class="tile" onclick="openPage('tool1.html')">
-Tool 1
-</div>
+        <button class="tile" onclick="openPage('tool2.html')" aria-label="Open Tool 2">
+          <div class="icon">◻</div>
+          <div>
+            <div class="name">Tool 2</div>
+            <div class="desc">Reserved for future HTML tool</div>
+          </div>
+        </button>
 
-<div class="tile" onclick="openPage('tool2.html')">
-Tool 2
-</div>
+        <button class="tile" onclick="openPage('tool3.html')" aria-label="Open Tool 3">
+          <div class="icon">◻</div>
+          <div>
+            <div class="name">Tool 3</div>
+            <div class="desc">Reserved for future HTML tool</div>
+          </div>
+        </button>
+      </div>
 
-<div class="tile" onclick="openPage('tool3.html')">
-Tool 3
-</div>
-
-</div>
+      <div class="footer">Scroll only when content exceeds the screen</div>
+    </div>
+  </div>
 
 <script>
-
 function openPage(page){
-window.location.href = page;
+  window.location.href = page;
 }
-
 </script>
-
 </body>
 </html>
