@@ -160,7 +160,7 @@
         </div>
         <div class="row">
           <div class="label">Extra video links</div>
-          <div class="help" style="margin-bottom:10px;">Built-in links come from <b>shorts_links.js</b>. It supports either a JavaScript array or a plain multiline string. Add more here, one per line.</div>
+          <div class="help" style="margin-bottom:10px;">Built-in links come from <b>shorts_links.js</b>. Add more here, one per line.</div>
           <textarea id="videoLinks"></textarea>
         </div>
         <div class="actions">
@@ -234,8 +234,7 @@
 
     function normalizeSourceLinks(value) {
       if (Array.isArray(value)) return value.map(v => String(v || '').trim()).filter(Boolean);
-      if (typeof value === 'string') return value.split(/?
-|,/).map(v => v.trim()).filter(Boolean);
+      if (typeof value === 'string') return value.split(/\r?\n|,/).map(v => v.trim()).filter(Boolean);
       return [];
     }
 
