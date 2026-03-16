@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Shorts Player Preload</title>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0; width: 100%; height: 100%; overflow: hidden;
+      background: #000; color: #fff;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      touch-action: pan-y;
+    }
+    #app { position: relative; width: 100vw; height: 100vh; overflow: hidden; background: #000; }
+    .playerLayer {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      transition: opacity .18s ease;
+      background: #000;
+    }
+    .playerLayer iframe { width: 100% !important; height: 100% !important; }
+    .visible { opacity: 1; pointer-events: auto; z-index: 2; }
+    .hiddenLayer { opacity: 0; pointer-events: none; z-index: 1; }
+    .preloadLayer {
+      position: absolute; left: -9999px; top: -9999px; width: 320px; height: 568px;
+      opacity: 0; pointer-events: none;
+    }
+
+    #ui {
+      position: absolute; inset: 0; z-index: 20;
+      transition: opacity .2s ease;
+      pointer-events: none;
+      opacity: 1;
+    }
+    #ui.hidden { opacity: 0; }
+
+    .topbar {
+      position: absolute; top: 18px; left: 16px; right: 16px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .counter {
+      background: rgba(0,0,0,.45); padding: 8px 12px; border-radius: 999px;
+      font-size: 16px; font-weight: 800; backdrop-filter: blur(10px);
+    }
+    .iconBtn, .pillBtn {
+      pointer-events: auto;
+      border: none; color: #fff; cursor: pointer;
+      background: rgba(0,0,0,.45); backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0,0,0,.25);
+    }
+    .iconBtn {
+      width: 48px; height: 48px; border-radius: 50%; font-size: 24px;
+      display: grid; place-items: center;
+    }
+    .bottom {
+      position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%);
+      display: flex; justify-content: center;
+    }
+    .pillBtn {
+      border-radius: 999px; padding: 14px 22px; font-size: 16px; font-weight: 800;
+    }
+
+    #touchSurface {
+      position: absolute; inset: 0; z-index: 10; background: transparent;
+    }
+
+    .overlay {
+      position: absolute; inset: 0; z-index: 50; background: rgba(0,0,0,.45);
+      display: none; align-items: center; justify-content: center; padding: 20px;
+    }
+    .overlay.show { display: flex; }
+    .modal {
+      width: min(92vw, 560px); max-height: 86vh; overflow: auto;
+      border-radius: 24px; background: rgba(15,15,15,.96);
+      border: 1px solid rgba(255,255,255,.08);
+      box-shadow: 0 20px 60px rgba(0,0,0,.45);
+      padding: 22px; backdrop-filter: blur(16px);
+    }
+    .modal h2 { margin: 0 0 16px; font-size: 28px; }
+    .row { margin-bottom: 18px; }
+    .label { font-size: 18px; font-weight: 800; margin-bottom: 8px; }
+    .help { font-size: 14px; line-height: 1.45; opacity: .82; }
+    select, textarea {
+      width: 100%; border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06); color: #fff;
+      border-radius: 16px; padding: 14px; font-size: 15px; outline: none;
+    }
+    textarea { min-height: 136px; resize: vertical; line-height: 1.5; }
+    .switchRow {
+      display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    }
+    .switch { position: relative; width: 64px; height: 36px; flex: 0 0 auto; }
+    .switch input { display: none; }
+    .slider {
+      position: absolute; inset: 0; background: #444; border-radius: 999px;
+      transition: .2s ease; cursor: pointer;
+    }
+    .slider::before {
+      content: ''; position: absolute; width: 28px; height: 28px; left: 4px; top: 4px;
+      background: white; border-radius: 50%; transition: .2s ease;
+    }
+    .switch input:checked + .slider { background: #16a34a; }
+    .switch input:checked + .slider::before { transform: translateX(28px); }
+    .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; }
+    .primary, .secondary {
+      border-radius: 14px; font-weight: 800; padding: 12px 16px; cursor: pointer;
+    }
+    .primary { border: none; background: #fff; color: #000; }
+    .secondary { border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: #fff; }
+
+    #toast {
+      position: absolute; left: 50%; top: 86px; transform: translateX(-50%);
+      z-index: 60; background: rgba(0,0,0,.65); padding: 10px 14px;
+      border-radius: 12px; font-size: 14px; opacity: 0; transition: opacity .25s ease;
+      pointer-events: none; backdrop-filter: blur(10px);
+    }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="activeLayer" class="playerLayer visible"></div>
+    <div id="standbyLayer" class="playerLayer hiddenLayer"></div>
+    <div id="preloadLayer" class="preloadLayer"></div>
+
+    <div id="touchSurface"></div>
+
+    <div id="ui">
+      <div class="topbar">
+        <div class="counter" id="counter">1 / 1</div>
+        <button class="iconBtn" id="settingsBtn" aria-label="Settings">⚙</button>
+      </div>
+      <div class="bottom">
+        <button class="pillBtn" id="replayBtn">↻ Replay</button>
+      </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <div class="overlay" id="settingsOverlay">
+      <div class="modal" role="dialog" aria-modal="true" aria-label="Settings">
+        <h2>Settings</h2>
+        <div class="row">
+          <div class="label">Playback mode</div>
+          <div class="help" style="margin-bottom:10px;">Choose whether a video repeats itself or moves to the next video when it ends.</div>
+          <select id="playbackMode">
+            <option value="loop">Loop single</option>
+            <option value="next">Go to next</option>
+          </select>
+        </div>
+        <div class="row switchRow">
+          <div>
+            <div class="label">Start with sound</div>
+            <div class="help">Browsers may block autoplay with sound. First tap anywhere unlocks it.</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="soundToggle" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="row">
+          <div class="label">Extra video links</div>
+          <div class="help" style="margin-bottom:10px;">Built-in links come from <b>shorts_links.js</b>. Add more here, one per line.</div>
+          <textarea id="videoLinks"></textarea>
+        </div>
+        <div class="actions">
+          <button class="secondary" id="closeSettings">Close</button>
+          <button class="primary" id="saveSettings">Save & Reload</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="shorts_links.js"></script>
+  <script>
+    const STORAGE_KEY = 'shorts-player-preload-v3';
+    const TOUCH_SWIPE_THRESHOLD = 50;
+    const TOUCH_TAP_MAX_MOVE = 12;
+    const UI_HIDE_MS = 2500;
+
+    const fallbackLinks = [
+      'https://youtube.com/shorts/Ay6qLrxWyWs'
+    ];
+
+    function extractYouTubeId(url) {
+      if (!url) return null;
+      const trimmed = String(url).trim();
+      if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+      const patterns = [
+        /(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+        /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
+        /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+        /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/
+      ];
+      for (const pattern of patterns) {
+        const match = trimmed.match(pattern);
+        if (match) return match[1];
+      }
+      try {
+        const u = new URL(trimmed);
+        const v = u.searchParams.get('v');
+        if (v && /^[a-zA-Z0-9_-]{11}$/.test(v)) return v;
+      } catch {}
+      return null;
+    }
+
+    function linksToVideos(links) {
+      const seen = new Set();
+      const out = [];
+      for (const raw of links || []) {
+        const id = extractYouTubeId(raw);
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        out.push({ id, title: 'YouTube Short' });
+      }
+      return out;
+    }
+
+    function loadSaved() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || {};
+      } catch {
+        return {};
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        loopSingle: state.loopSingle,
+        startWithSound: state.startWithSound,
+        customLinks: state.customLinks
+      }));
+    }
+
+    function normalizeSourceLinks(value) {
+      if (Array.isArray(value)) return value.map(v => String(v || '').trim()).filter(Boolean);
+      if (typeof value === 'string') return value.split(/\r?\n|,/).map(v => v.trim()).filter(Boolean);
+      return [];
+    }
+
+    function getFileLinks() {
+      const fromFile = normalizeSourceLinks(window.SHORTS_LINKS);
+      return fromFile.length ? fromFile : fallbackLinks;
+    }
+
+    const saved = loadSaved();
+
+    const state = {
+      loopSingle: typeof saved.loopSingle === 'boolean' ? saved.loopSingle : true,
+      startWithSound: typeof saved.startWithSound === 'boolean' ? saved.startWithSound : false,
+      customLinks: Array.isArray(saved.customLinks) ? saved.customLinks : []
+    };
+
+    let videos = [];
+    let currentIndex = 0;
+    let apiReady = false;
+    let userInteracted = false;
+    let activePlayer = null;
+    let preloadPlayer = null;
+    let transitionLock = false;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let lastTouchMoved = false;
+    let uiTimer = null;
+
+    const uiEl = document.getElementById('ui');
+    const counterEl = document.getElementById('counter');
+    const toastEl = document.getElementById('toast');
+    const settingsOverlay = document.getElementById('settingsOverlay');
+    const playbackModeEl = document.getElementById('playbackMode');
+    const soundToggleEl = document.getElementById('soundToggle');
+    const videoLinksEl = document.getElementById('videoLinks');
+    const activeLayerEl = document.getElementById('activeLayer');
+    const preloadLayerEl = document.getElementById('preloadLayer');
+    const touchSurfaceEl = document.getElementById('touchSurface');
+
+    function rebuildVideos() {
+      videos = linksToVideos([...(getFileLinks() || []), ...(state.customLinks || [])]);
+      if (!videos.length) videos = linksToVideos(fallbackLinks);
+      if (currentIndex >= videos.length) currentIndex = 0;
+      updateCounter();
+    }
+
+    function updateCounter() {
+      counterEl.textContent = `${currentIndex + 1} / ${Math.max(1, videos.length)}`;
+    }
+
+    function showToast(text) {
+      toastEl.textContent = text;
+      toastEl.classList.add('show');
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toastEl.classList.remove('show'), 1500);
+    }
+
+    function showUI(autoHide = true) {
+      if (settingsOverlay.classList.contains('show')) return;
+      uiEl.classList.remove('hidden');
+      clearTimeout(uiTimer);
+      if (autoHide) uiTimer = setTimeout(hideUI, UI_HIDE_MS);
+    }
+
+    function hideUI() {
+      clearTimeout(uiTimer);
+      uiEl.classList.add('hidden');
+    }
+
+    function toggleUI() {
+      if (uiEl.classList.contains('hidden')) {
+        showUI(true);
+      } else {
+        hideUI();
+      }
+    }
+
+    function effectiveMute() {
+      return !(state.startWithSound && userInteracted);
+    }
+
+    function safeStop(player) {
+      if (!player) return;
+      try { player.stopVideo && player.stopVideo(); } catch {}
+      try { player.pauseVideo && player.pauseVideo(); } catch {}
+    }
+
+    function safeDestroy(player) {
+      if (!player) return;
+      safeStop(player);
+      try { player.destroy && player.destroy(); } catch {}
+    }
+
+    function playerVarsForIndex(index, autoplay) {
+      return {
+        autoplay: autoplay ? 1 : 0,
+        controls: 0,
+        playsinline: 1,
+        rel: 0,
+        modestbranding: 1,
+        fs: 0,
+        iv_load_policy: 3,
+        cc_load_policy: 0,
+        mute: effectiveMute() ? 1 : 0,
+        enablejsapi: 1,
+        origin: location.origin
+      };
+    }
+
+    function createPlayer(targetId, index, autoplay, stateChangeHandler, readyHandler) {
+      return new YT.Player(targetId, {
+        width: '100%',
+        height: '100%',
+        videoId: videos[index].id,
+        playerVars: playerVarsForIndex(index, autoplay),
+        events: {
+          onReady: readyHandler,
+          onStateChange: stateChangeHandler,
+          onError: () => {
+            showToast('Could not play this video. Skipping...');
+            transitionLock = false;
+            nextVideo();
+          }
+        }
+      });
+    }
+
+    function prepareLayerContainers() {
+      activeLayerEl.innerHTML = '<div id="playerActive"></div>';
+      preloadLayerEl.innerHTML = '<div id="playerPreload"></div>';
+    }
+
+    function preloadNext() {
+      if (!apiReady || videos.length < 2) return;
+      const nextIndex = (currentIndex + 1) % videos.length;
+      safeDestroy(preloadPlayer);
+      preloadLayerEl.innerHTML = '<div id="playerPreload"></div>';
+      preloadPlayer = createPlayer(
+        'playerPreload',
+        nextIndex,
+        false,
+        () => {},
+        (event) => {
+          try {
+            if (effectiveMute()) event.target.mute(); else event.target.unMute();
+            event.target.cueVideoById(videos[nextIndex].id);
+          } catch {}
+        }
+      );
+    }
+
+    function attachActiveStateHandler(playerRef) {
+      return function(event) {
+        if (!window.YT || playerRef !== activePlayer) return;
+        if (event.data === YT.PlayerState.ENDED) {
+          transitionLock = false;
+          if (state.loopSingle) {
+            try {
+              activePlayer.seekTo(0, true);
+              activePlayer.playVideo();
+            } catch {
+              forceReloadCurrent();
+            }
+          } else {
+            nextVideo();
+          }
+        }
+      };
+    }
+
+    function forceReloadCurrent() {
+      if (!apiReady || !videos.length) return;
+      transitionLock = true;
+      safeDestroy(activePlayer);
+      activeLayerEl.innerHTML = '<div id="playerActive"></div>';
+      activePlayer = createPlayer(
+        'playerActive',
+        currentIndex,
+        true,
+        null,
+        (event) => {
+          try {
+            if (effectiveMute()) event.target.mute(); else event.target.unMute();
+            event.target.playVideo();
+          } catch {}
+          transitionLock = false;
+          preloadNext();
+        }
+      );
+      activePlayer.addEventListener?.('onStateChange', attachActiveStateHandler(activePlayer));
+    }
+
+    function buildInitialPlayer() {
+      if (!apiReady || !videos.length) return;
+      transitionLock = true;
+      prepareLayerContainers();
+      safeDestroy(activePlayer);
+      safeDestroy(preloadPlayer);
+      activePlayer = createPlayer(
+        'playerActive',
+        currentIndex,
+        true,
+        null,
+        (event) => {
+          try {
+            if (effectiveMute()) event.target.mute(); else event.target.unMute();
+            event.target.playVideo();
+          } catch {}
+          transitionLock = false;
+          preloadNext();
+        }
+      );
+      activePlayer.addEventListener?.('onStateChange', attachActiveStateHandler(activePlayer));
+      updateCounter();
+      showUI(true);
+    }
+
+    function switchTo(index) {
+      if (!apiReady || !videos.length || transitionLock) return;
+      transitionLock = true;
+      currentIndex = ((index % videos.length) + videos.length) % videos.length;
+      updateCounter();
+
+      safeDestroy(activePlayer);
+      activeLayerEl.innerHTML = '<div id="playerActive"></div>';
+      activePlayer = createPlayer(
+        'playerActive',
+        currentIndex,
+        true,
+        null,
+        (event) => {
+          try {
+            if (effectiveMute()) event.target.mute(); else event.target.unMute();
+            event.target.playVideo();
+          } catch {}
+          transitionLock = false;
+          preloadNext();
+        }
+      );
+      activePlayer.addEventListener?.('onStateChange', attachActiveStateHandler(activePlayer));
+      showUI(true);
+    }
+
+    function nextVideo() { switchTo(currentIndex + 1); }
+    function prevVideo() { switchTo(currentIndex - 1); }
+
+    function replayVideo() {
+      if (!activePlayer) return;
+      try {
+        activePlayer.seekTo(0, true);
+        activePlayer.playVideo();
+      } catch {
+        forceReloadCurrent();
+      }
+      showUI(true);
+    }
+
+    function unlockAudioIfNeeded() {
+      if (userInteracted) return;
+      userInteracted = true;
+      if (state.startWithSound && activePlayer) {
+        try {
+          activePlayer.unMute();
+          activePlayer.playVideo();
+        } catch {}
+      }
+      preloadNext();
+    }
+
+    function openSettings() {
+      clearTimeout(uiTimer);
+      showUI(false);
+      playbackModeEl.value = state.loopSingle ? 'loop' : 'next';
+      soundToggleEl.checked = state.startWithSound;
+      videoLinksEl.value = state.customLinks.join('\n');
+      settingsOverlay.classList.add('show');
+    }
+
+    function closeSettings() {
+      settingsOverlay.classList.remove('show');
+      showUI(true);
+    }
+
+    function saveSettingsFromModal() {
+      const customLinks = videoLinksEl.value.split(/\r?\n/).map(v => v.trim()).filter(Boolean);
+      state.loopSingle = playbackModeEl.value === 'loop';
+      state.startWithSound = soundToggleEl.checked;
+      state.customLinks = customLinks;
+      saveState();
+      rebuildVideos();
+      closeSettings();
+      buildInitialPlayer();
+      showToast('Settings saved');
+    }
+
+    document.getElementById('settingsBtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openSettings();
+    });
+    document.getElementById('replayBtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      replayVideo();
+    });
+    document.getElementById('closeSettings').addEventListener('click', closeSettings);
+    document.getElementById('saveSettings').addEventListener('click', saveSettingsFromModal);
+    settingsOverlay.addEventListener('click', (e) => {
+      if (e.target === settingsOverlay) closeSettings();
+    });
+
+    touchSurfaceEl.addEventListener('touchstart', (e) => {
+      if (settingsOverlay.classList.contains('show')) return;
+      const t = e.changedTouches[0];
+      touchStartX = t.clientX;
+      touchStartY = t.clientY;
+      lastTouchMoved = false;
+    }, { passive: true });
+
+    touchSurfaceEl.addEventListener('touchmove', (e) => {
+      if (settingsOverlay.classList.contains('show')) return;
+      const t = e.changedTouches[0];
+      if (Math.abs(t.clientY - touchStartY) > TOUCH_TAP_MAX_MOVE || Math.abs(t.clientX - touchStartX) > TOUCH_TAP_MAX_MOVE) {
+        lastTouchMoved = true;
+      }
+    }, { passive: true });
+
+    touchSurfaceEl.addEventListener('touchend', (e) => {
+      if (settingsOverlay.classList.contains('show')) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - touchStartX;
+      const dy = t.clientY - touchStartY;
+      unlockAudioIfNeeded();
+
+      if (Math.abs(dy) >= TOUCH_SWIPE_THRESHOLD && Math.abs(dy) > Math.abs(dx)) {
+        if (dy < 0) nextVideo(); else prevVideo();
+        return;
+      }
+
+      if (!lastTouchMoved && Math.abs(dx) <= TOUCH_TAP_MAX_MOVE && Math.abs(dy) <= TOUCH_TAP_MAX_MOVE) {
+        toggleUI();
+      }
+    }, { passive: true });
+
+    window.addEventListener('wheel', (e) => {
+      if (settingsOverlay.classList.contains('show')) return;
+      unlockAudioIfNeeded();
+      if (Math.abs(e.deltaY) < 10) return;
+      if (e.deltaY > 0) nextVideo(); else prevVideo();
+    }, { passive: true });
+
+    document.addEventListener('visibilitychange', () => {
+      if (!activePlayer) return;
+      try {
+        if (document.hidden) activePlayer.pauseVideo(); else activePlayer.playVideo();
+      } catch {}
+    });
+
+    window.addEventListener('beforeunload', () => {
+      safeDestroy(activePlayer);
+      safeDestroy(preloadPlayer);
+    });
+
+    function onYouTubeIframeAPIReady() {
+      apiReady = true;
+      rebuildVideos();
+      buildInitialPlayer();
+    }
+    window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+
+    rebuildVideos();
+    showUI(true);
+  </script>
+  <script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
