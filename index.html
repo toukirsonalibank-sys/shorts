@@ -160,7 +160,7 @@
         </div>
         <div class="row">
           <div class="label">Extra video links</div>
-          <div class="help" style="margin-bottom:10px;">Built-in links come from <b>shorts_links.js</b>. Add more here, one per line.</div>
+          <div class="help" style="margin-bottom:10px;">Built-in links come from <b>shorts_links.js</b>. It supports either a JavaScript array or a plain multiline string. Add more here, one per line.</div>
           <textarea id="videoLinks"></textarea>
         </div>
         <div class="actions">
@@ -232,8 +232,19 @@
       }));
     }
 
+    function normalizeSourceLinks(value) {
+      if (Array.isArray(value)) return value.map(v => String(v || '').trim()).filter(Boolean);
+      if (typeof value === 'string') return value.split(/?
+|,/).map(v => v.trim()).filter(Boolean);
+      return [];
+    }
+
+    function getFileLinks() {
+      const fromFile = normalizeSourceLinks(window.SHORTS_LINKS);
+      return fromFile.length ? fromFile : fallbackLinks;
+    }
+
     const saved = loadSaved();
-    const fileLinks = Array.isArray(window.SHORTS_LINKS) ? window.SHORTS_LINKS : fallbackLinks;
 
     const state = {
       loopSingle: typeof saved.loopSingle === 'boolean' ? saved.loopSingle : true,
@@ -265,7 +276,7 @@
     const touchSurfaceEl = document.getElementById('touchSurface');
 
     function rebuildVideos() {
-      videos = linksToVideos([...(fileLinks || []), ...(state.customLinks || [])]);
+      videos = linksToVideos([...(getFileLinks() || []), ...(state.customLinks || [])]);
       if (!videos.length) videos = linksToVideos(fallbackLinks);
       if (currentIndex >= videos.length) currentIndex = 0;
       updateCounter();
