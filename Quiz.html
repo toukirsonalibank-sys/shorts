@@ -5,6 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Text Trainer</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <div id="library-modal" class="hidden fixed inset-0 z-[70] bg-slate-900/55 backdrop-blur-sm p-3 md:p-6">
+        <div class="max-w-4xl mx-auto h-full flex flex-col">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-2xl flex-1 min-h-0 overflow-hidden">
+                <div class="flex items-center justify-between gap-3 px-4 md:px-5 py-4 border-b border-slate-200 dark:border-slate-800">
+                    <div>
+                        <h3 class="text-lg font-semibold">Saved Sets</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Folders / Subfolders / Sets</p>
+                    </div>
+                    <button id="close-library-btn" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition" title="Close">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div class="px-4 md:px-5 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+                    <div id="library-count" class="text-sm text-slate-500 dark:text-slate-400">0 saved</div>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="export-memory-btn-modal" class="text-sm bg-amber-100 dark:bg-amber-500/20 hover:bg-amber-200 dark:hover:bg-amber-500/30 text-amber-800 dark:text-amber-300 px-3 py-2 rounded-xl transition">Export</button>
+                        <button id="import-memory-btn-modal" class="text-sm bg-teal-100 dark:bg-teal-500/20 hover:bg-teal-200 dark:hover:bg-teal-500/30 text-teal-800 dark:text-teal-300 px-3 py-2 rounded-xl transition">Import</button>
+                        <button id="save-current-from-modal-btn" class="text-sm bg-violet-100 dark:bg-violet-500/20 hover:bg-violet-200 dark:hover:bg-violet-500/30 text-violet-800 dark:text-violet-300 px-3 py-2 rounded-xl transition">Save current</button>
+                    </div>
+                </div>
+                <div id="library-list" class="p-4 md:p-5 overflow-y-auto h-full space-y-4"></div>
+            </div>
+        </div>
+    </div>
+
+
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -14,6 +40,21 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
+
+        :root {
+            color-scheme: light;
+        }
+        html, body {
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+        html.dark {
+            color-scheme: dark;
+        }
+        html.dark, html.dark body {
+            background-color: #0b1120;
+            color: #e2e8f0;
+        }
         .drag-over { border-color: #3b82f6 !important; background-color: #eff6ff !important; }
         .dark .drag-over { border-color: #60a5fa !important; background-color: rgba(59, 130, 246, 0.1) !important; }
         .loader {
@@ -124,10 +165,15 @@
                         </label>
                     </div>
 
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
                         <button id="clean-text-btn" class="bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-600 px-4 py-3 rounded-xl font-semibold transition">Clean</button>
                         <button id="copy-btn" class="bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-600 px-4 py-3 rounded-xl font-semibold transition">Copy</button>
                         <button id="download-btn" class="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-500/30 px-4 py-3 rounded-xl font-semibold transition">Download</button>
+                        <button id="save-set-btn" class="bg-violet-100 dark:bg-violet-500/20 text-violet-800 dark:text-violet-300 hover:bg-violet-200 dark:hover:bg-violet-500/30 px-4 py-3 rounded-xl font-semibold transition">Save</button>
+                        <button id="library-btn" class="bg-sky-100 dark:bg-sky-500/20 text-sky-800 dark:text-sky-300 hover:bg-sky-200 dark:hover:bg-sky-500/30 px-4 py-3 rounded-xl font-semibold transition">Library</button>
+                        <button id="export-memory-btn" class="bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-500/30 px-4 py-3 rounded-xl font-semibold transition">Export</button>
+                        <button id="import-memory-btn" class="bg-teal-100 dark:bg-teal-500/20 text-teal-800 dark:text-teal-300 hover:bg-teal-200 dark:hover:bg-teal-500/30 px-4 py-3 rounded-xl font-semibold transition">Import</button>
+                        <input id="import-memory-file" type="file" accept=".txt,application/json,text/plain" class="hidden" />
                         <button id="start-game-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-xl font-semibold shadow-lg transition">Start</button>
                     </div>
                 </div>
@@ -183,6 +229,9 @@
                 </div>
 
                 <div class="flex items-center gap-3 shrink-0 ml-auto">
+                    <button id="undo-btn" class="p-1 text-slate-400 dark:text-slate-500 hover:text-sky-500 dark:hover:text-sky-400 transition" title="Undo">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 7v6h6M21 17a8 8 0 00-13.66-5.66L3 13"></path></svg>
+                    </button>
                     <button id="restart-round-btn" class="p-1 text-slate-400 dark:text-slate-500 hover:text-amber-500 dark:hover:text-amber-400 transition" title="Restart Round">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                     </button>
@@ -207,7 +256,8 @@
             text: 'ute_text_v2',
             prefs: 'ute_prefs_v2',
             game: 'ute_game_state_v2',
-            theme: 'ute_theme_v2'
+            theme: 'ute_theme_v2',
+            library: 'ute_library_v1'
         };
 
         const dropZone = document.getElementById('drop-zone');
@@ -218,6 +268,13 @@
         const statusText = document.getElementById('status-text');
         const copyBtn = document.getElementById('copy-btn');
         const downloadBtn = document.getElementById('download-btn');
+        const saveSetBtn = document.getElementById('save-set-btn');
+        const libraryBtn = document.getElementById('library-btn');
+        const exportMemoryBtn = document.getElementById('export-memory-btn');
+        const importMemoryBtn = document.getElementById('import-memory-btn');
+        const exportMemoryBtnModal = document.getElementById('export-memory-btn-modal');
+        const importMemoryBtnModal = document.getElementById('import-memory-btn-modal');
+        const importMemoryFile = document.getElementById('import-memory-file');
         const cleanTextBtn = document.getElementById('clean-text-btn');
         const themeToggleBtn = document.getElementById('theme-toggle-btn');
         const restoreBtn = document.getElementById('restore-btn');
@@ -238,6 +295,7 @@
         const startGameBtn = document.getElementById('start-game-btn');
         const gameView = document.getElementById('game-view');
         const exitGameBtn = document.getElementById('exit-game-btn');
+        const undoBtn = document.getElementById('undo-btn');
         const restartRoundBtn = document.getElementById('restart-round-btn');
         const gameArea = document.getElementById('game-area');
         const gameText = document.getElementById('game-text');
@@ -248,6 +306,11 @@
         const modeLabel = document.getElementById('mode-label');
         const progressBar = document.getElementById('progress-bar');
         const toast = document.getElementById('toast');
+        const libraryModal = document.getElementById('library-modal');
+        const libraryList = document.getElementById('library-list');
+        const libraryCount = document.getElementById('library-count');
+        const closeLibraryBtn = document.getElementById('close-library-btn');
+        const saveCurrentFromModalBtn = document.getElementById('save-current-from-modal-btn');
 
         let gameWords = [];
         let activeSequence = [];
@@ -255,6 +318,7 @@
         let currentWordIndex = -1;
         let pendingAnswerIndex = -1;
         let tesseractWorker = null;
+        let historyStack = [];
 
         const gameStats = {
             total: 0,
@@ -323,16 +387,32 @@
                 const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = url;
-                a.download = 'extracted_text.txt';
-                a.click();
+    a.href = url;
+    a.download = 'text.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
                 URL.revokeObjectURL(url);
                 showToast('TXT downloaded');
+            });
+
+            saveSetBtn.addEventListener('click', saveCurrentSet);
+            libraryBtn.addEventListener('click', openLibraryModal);
+            exportMemoryBtn.addEventListener('click', exportMemoryToTxt);
+            importMemoryBtn.addEventListener('click', () => importMemoryFile.click());
+            exportMemoryBtnModal.addEventListener('click', exportMemoryToTxt);
+            importMemoryBtnModal.addEventListener('click', () => importMemoryFile.click());
+            importMemoryFile.addEventListener('change', (e) => importMemoryFromFile(e.target.files && e.target.files[0]));
+            closeLibraryBtn.addEventListener('click', closeLibraryModal);
+            saveCurrentFromModalBtn.addEventListener('click', saveCurrentSet);
+            libraryModal.addEventListener('click', (e) => {
+                if (e.target === libraryModal) closeLibraryModal();
             });
 
             startGameBtn.addEventListener('click', startGameFromText);
             restoreBtn.addEventListener('click', restoreSavedGame);
             exitGameBtn.addEventListener('click', exitGame);
+            undoBtn.addEventListener('click', undoLastAction);
             
             restartRoundBtn.addEventListener('click', () => {
                 startNewRound();
@@ -342,7 +422,15 @@
             gameArea.addEventListener('click', handleGameTap);
 
             document.addEventListener('keydown', (e) => {
+                if (!libraryModal.classList.contains('hidden') && e.key === 'Escape') {
+                    closeLibraryModal();
+                    return;
+                }
                 if (gameView.classList.contains('hidden')) return;
+                if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey || !e.shiftKey)) {
+                    e.preventDefault();
+                    return undoLastAction();
+                }
                 if (e.key === 'Escape') return exitGame();
                 if (e.key === 'n' || e.key === 'N') return startNewRound();
                 if (e.key === 'm' || e.key === 'M') { 
@@ -351,7 +439,12 @@
                     return; 
                 }
                 if (e.key === 'r' || e.key === 'R') return handleAdvanceTap();
-                if (e.key === ' ' || e.code === 'Space' || e.key === 'Enter' || e.key === 'ArrowRight') {
+                if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    return markPendingYes();
+                }
+
+                if (e.key === ' ' || e.code === 'Space' || e.key === 'Enter') {
                     e.preventDefault();
                     return handleAdvanceTap();
                 }
@@ -365,16 +458,17 @@
         function handleGameTap(e) {
             if (e.target.closest('button')) return;
             const tappedPending = e.target.closest('#pending-answer-word');
-            if (tappedPending) return markPendingNo();
+            if (tappedPending) return markPendingYes();
             handleAdvanceTap();
         }
 
         function handleAdvanceTap() {
+            pushHistorySnapshot('advance');
             if (pendingAnswerIndex !== -1) {
-                markPendingYes();
+                markPendingNo(false);
             }
             if (currentWordIndex === -1) return;
-            revealAndQueueNext();
+            revealAndQueueNext(false);
         }
 
         function cleanText(text) {
@@ -389,6 +483,11 @@
                 .trim();
         }
 
+        function isSkippableQuestionLine(line) {
+            if (!line) return false;
+            return /^\s*#.+#\s*$/.test(String(line));
+        }
+
         function splitIntoChunks(text, mode) {
             const normalized = text.replace(/\r/g, '').trim();
             if (!normalized) return [];
@@ -397,7 +496,13 @@
                     .split(/(?<=[.!?।])\s+|\n+/)
                     .map(s => s.trim())
                     .filter(Boolean)
-                    .map((item, idx) => ({ text: item, raw: item, state: 'hidden', level: detectLevel(item), index: idx }));
+                    .map((item, idx) => ({
+                        text: item,
+                        raw: item,
+                        state: isSkippableQuestionLine(item) ? 'skipped' : 'hidden',
+                        level: detectLevel(item),
+                        index: idx
+                    }));
             }
 
             return normalized
@@ -405,7 +510,13 @@
                 .map(line => line.replace(/[ \t]+$/g, ''))
                 .map((line, idx) => line.trim().length === 0
                     ? { text: '', raw: '', state: 'newline', level: 0, index: idx }
-                    : { text: line, raw: line, state: 'hidden', level: detectLevel(line), index: idx })
+                    : {
+                        text: line,
+                        raw: line,
+                        state: isSkippableQuestionLine(line) ? 'skipped' : 'hidden',
+                        level: detectLevel(line),
+                        index: idx
+                    })
         }
 
         function detectLevel(line) {
@@ -415,6 +526,7 @@
         }
 
         function startGameFromText() {
+            historyStack = [];
             let text = textOutput.value.trim();
             if (!text) return showToast('Please add some text first');
             if (cleanBeforeStartCheckbox.checked) {
@@ -428,7 +540,7 @@
             if (!gameWords.some(w => w.state === 'hidden')) return showToast('No usable lines found');
 
             resetStats();
-            gameStats.total = gameWords.filter(w => w.state !== 'newline').length;
+            gameStats.total = gameWords.filter(w => w.state !== 'newline' && w.state !== 'skipped').length;
             openGameView();
             startNewRound();
             showToast('Game started');
@@ -491,7 +603,7 @@
         function startNewRound() {
             let remaining = 0;
             gameWords.forEach(w => {
-                if (w.state !== 'newline' && w.state !== 'yes') {
+                if (w.state !== 'newline' && w.state !== 'yes' && w.state !== 'skipped') {
                     w.state = 'hidden';
                     remaining++;
                 }
@@ -509,6 +621,7 @@
             currentSeqIndex = -1;
             currentWordIndex = -1;
             pendingAnswerIndex = -1;
+            historyStack = [];
             queueNextCurrent();
             renderGame();
             updateStatsUI();
@@ -539,7 +652,7 @@
 
                 currentWordIndex = activeSequence[currentSeqIndex];
                 const current = gameWords[currentWordIndex];
-                if (!current || current.state === 'newline' || current.state === 'yes' || current.state === 'no') {
+                if (!current || current.state === 'newline' || current.state === 'yes' || current.state === 'no' || current.state === 'skipped') {
                     continue;
                 }
                 current.state = 'prompt';
@@ -547,7 +660,8 @@
             }
         }
 
-        function revealAndQueueNext() {
+        function revealAndQueueNext(shouldSnapshot = false) {
+            if (shouldSnapshot) pushHistorySnapshot('reveal');
             const current = gameWords[currentWordIndex];
             if (!current) return;
             if (current.state !== 'prompt') return;
@@ -560,8 +674,9 @@
             persistGameState();
         }
 
-        function markPendingYes() {
+        function markPendingYes(shouldSnapshot = true) {
             if (pendingAnswerIndex === -1) return;
+            if (shouldSnapshot) pushHistorySnapshot('yes');
             const pending = gameWords[pendingAnswerIndex];
             if (!pending || pending.state !== 'revealed') {
                 pendingAnswerIndex = -1;
@@ -575,8 +690,9 @@
             persistGameState();
         }
 
-        function markPendingNo() {
+        function markPendingNo(shouldSnapshot = true) {
             if (pendingAnswerIndex === -1) return;
+            if (shouldSnapshot) pushHistorySnapshot('no');
             const pending = gameWords[pendingAnswerIndex];
             if (!pending || pending.state !== 'revealed') {
                 pendingAnswerIndex = -1;
@@ -601,6 +717,7 @@
 
                 if (w.state === 'yes') return `<div class="${common} bg-emerald-50 dark:bg-emerald-500/10 text-emerald-900 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-500/20">${processed}</div>`;
                 if (w.state === 'no') return `<div class="${common} bg-rose-50 dark:bg-rose-500/10 text-rose-800 dark:text-rose-300 border border-rose-100 dark:border-rose-500/20">${processed}</div>`;
+                if (w.state === 'skipped') return `<div class="${common} bg-slate-100 dark:bg-slate-700/40 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600/60">${processed}</div>`;
                 if (w.state === 'revealed') return `<div id="pending-answer-word" class="${common} tap-hint bg-blue-50 dark:bg-blue-500/10 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30 shadow-md pulse-soft">${processed}</div>`;
                 if (w.state === 'prompt') return `<div id="current-prompt-word" class="${common} prompt-card dark:border-amber-500/30 dark:bg-amber-500/10 tap-hint shadow-md pulse-soft"><div class="hidden-answer border border-transparent">${processed}</div></div>`;
                 return `<div class="${common} hidden-answer border border-slate-100 dark:border-slate-700/50">${processed}</div>`;
@@ -627,8 +744,9 @@
         }
 
         function updateStatsUI() {
-            const total = gameWords.filter(w => w.state !== 'newline').length;
+            const total = gameWords.filter(w => w.state !== 'newline' && w.state !== 'skipped').length;
             const done = gameWords.filter(w => w.state === 'yes').length;
+            const skipped = gameWords.filter(w => w.state === 'skipped').length;
             const remaining = getRemainingCount();
             const answered = gameStats.yes + gameStats.no;
             const accuracy = answered ? Math.round((gameStats.yes / answered) * 100) : 0;
@@ -636,13 +754,13 @@
             progressLabel.textContent = `${done} / ${total}`;
             accuracyLabel.textContent = `${accuracy}%`;
             remainingLabel.textContent = `${remaining}`;
-            mistakeLabel.textContent = `${gameStats.mistakes.size}`;
+            mistakeLabel.textContent = `${gameStats.mistakes.size}${skipped ? ` • S ${skipped}` : ''}`;
             progressBar.style.width = total ? `${(done / total) * 100}%` : '0%';
             updateModeLabel();
         }
 
         function getRemainingCount() {
-            return gameWords.filter(w => w.state !== 'newline' && w.state !== 'yes').length;
+            return gameWords.filter(w => w.state !== 'newline' && w.state !== 'yes' && w.state !== 'skipped').length;
         }
 
         function renderCompletion(message) {
@@ -753,6 +871,386 @@
             appendText(text || '');
         }
 
+
+        function cloneGameWords(words) {
+            return words.map(item => ({ ...item }));
+        }
+
+        function snapshotState() {
+            return {
+                gameWords: cloneGameWords(gameWords),
+                activeSequence: [...activeSequence],
+                currentSeqIndex,
+                currentWordIndex,
+                pendingAnswerIndex,
+                historyStack: [...historyStack],
+                gameStats: {
+                    total: gameStats.total,
+                    yes: gameStats.yes,
+                    no: gameStats.no,
+                    reveal: gameStats.reveal,
+                    round: gameStats.round,
+                    mistakes: [...gameStats.mistakes]
+                }
+            };
+        }
+
+        function pushHistorySnapshot(reason = '') {
+            if (gameView.classList.contains('hidden')) return;
+            const snap = snapshotState();
+            snap.reason = reason;
+            historyStack.push(snap);
+            if (historyStack.length > 80) historyStack.shift();
+        }
+
+        function applySnapshot(snapshot) {
+            gameWords = cloneGameWords(snapshot.gameWords || []);
+            activeSequence = [...(snapshot.activeSequence || [])];
+            currentSeqIndex = typeof snapshot.currentSeqIndex === 'number' ? snapshot.currentSeqIndex : -1;
+            currentWordIndex = typeof snapshot.currentWordIndex === 'number' ? snapshot.currentWordIndex : -1;
+            pendingAnswerIndex = typeof snapshot.pendingAnswerIndex === 'number' ? snapshot.pendingAnswerIndex : -1;
+            historyStack = Array.isArray(snapshot.historyStack) ? [...snapshot.historyStack] : [];
+            gameStats.total = snapshot.gameStats?.total || 0;
+            gameStats.yes = snapshot.gameStats?.yes || 0;
+            gameStats.no = snapshot.gameStats?.no || 0;
+            gameStats.reveal = snapshot.gameStats?.reveal || 0;
+            gameStats.round = snapshot.gameStats?.round || 1;
+            gameStats.mistakes = new Set(snapshot.gameStats?.mistakes || []);
+            renderGame();
+            updateStatsUI();
+            persistGameState();
+        }
+
+        function undoLastAction() {
+            if (!historyStack.length) {
+                showToast('Nothing to undo');
+                return;
+            }
+            const snapshot = historyStack.pop();
+            applySnapshot(snapshot);
+            showToast('Undone');
+        }
+
+
+        function buildMemoryExportPayload() {
+            return {
+                app: 'Text Trainer',
+                exportVersion: 1,
+                exportedAt: new Date().toISOString(),
+                data: {
+                    text: localStorage.getItem(STORAGE_KEYS.text) || '',
+                    prefs: localStorage.getItem(STORAGE_KEYS.prefs) || '',
+                    game: localStorage.getItem(STORAGE_KEYS.game) || '',
+                    theme: localStorage.getItem(STORAGE_KEYS.theme) || '',
+                    library: localStorage.getItem(STORAGE_KEYS.library) || '[]'
+                }
+            };
+        }
+
+        function downloadTextFile(filename, content) {
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function exportMemoryToTxt() {
+            const payload = buildMemoryExportPayload();
+            const stamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+            downloadTextFile(`text-trainer-memory-${stamp}.txt`, JSON.stringify(payload, null, 2));
+            showToast('Memory exported');
+        }
+
+        function refreshUIFromStorage() {
+            restorePrefs();
+            restoreText();
+            renderLibrary();
+            updateTextStats(textOutput.value || '');
+        }
+
+        function applyImportedMemoryPayload(payload) {
+            const data = payload && payload.data ? payload.data : payload;
+            if (!data || typeof data !== 'object') {
+                showToast('Invalid import file');
+                return;
+            }
+
+            const hasKnownKey = ['text', 'prefs', 'game', 'theme', 'library'].some(key => key in data);
+            if (!hasKnownKey) {
+                showToast('Invalid import file');
+                return;
+            }
+
+            if (typeof data.text === 'string') localStorage.setItem(STORAGE_KEYS.text, data.text);
+            if (typeof data.prefs === 'string') localStorage.setItem(STORAGE_KEYS.prefs, data.prefs);
+            if (typeof data.game === 'string') localStorage.setItem(STORAGE_KEYS.game, data.game);
+            if (typeof data.theme === 'string') localStorage.setItem(STORAGE_KEYS.theme, data.theme);
+            if (typeof data.library === 'string') localStorage.setItem(STORAGE_KEYS.library, data.library);
+
+            refreshUIFromStorage();
+            applyTheme(localStorage.getItem(STORAGE_KEYS.theme) || 'light');
+            showToast('Memory imported');
+        }
+
+        function importMemoryFromFile(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const raw = String(reader.result || '').trim();
+                    const payload = JSON.parse(raw);
+                    const mode = window.confirm('Press OK to replace current in-app memory. Press Cancel to merge only saved library sets.');
+                    if (mode) {
+                        applyImportedMemoryPayload(payload);
+                        return;
+                    }
+
+                    const data = payload && payload.data ? payload.data : payload;
+                    const importedLibraryRaw = typeof data?.library === 'string' ? data.library : '[]';
+                    const importedLibrary = JSON.parse(importedLibraryRaw || '[]');
+                    const current = getLibrary();
+                    const byKey = new Map();
+
+                    current.forEach(item => {
+                        const key = `${item.folder || ''}__${item.subfolder || ''}__${(item.name || '').toLowerCase()}`;
+                        byKey.set(key, item);
+                    });
+
+                    if (Array.isArray(importedLibrary)) {
+                        importedLibrary.forEach(item => {
+                            if (!item || typeof item !== 'object') return;
+                            const key = `${item.folder || ''}__${item.subfolder || ''}__${(item.name || '').toLowerCase()}`;
+                            byKey.set(key, item);
+                        });
+                    }
+
+                    const merged = [...byKey.values()].sort((a, b) =>
+                        `${a.folder || ''}/${a.subfolder || ''}/${a.name || ''}`.localeCompare(`${b.folder || ''}/${b.subfolder || ''}/${b.name || ''}`)
+                    );
+                    saveLibrary(merged);
+                    renderLibrary();
+                    showToast('Library merged');
+                } catch (err) {
+                    showToast('Import failed');
+                } finally {
+                    importMemoryFile.value = '';
+                }
+            };
+            reader.onerror = () => {
+                showToast('Import failed');
+                importMemoryFile.value = '';
+            };
+            reader.readAsText(file, 'utf-8');
+        }
+
+        function getLibrary() {
+            const raw = localStorage.getItem(STORAGE_KEYS.library);
+            if (!raw) return [];
+            try {
+                const parsed = JSON.parse(raw);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (err) {
+                return [];
+            }
+        }
+
+        function saveLibrary(items) {
+            localStorage.setItem(STORAGE_KEYS.library, JSON.stringify(items));
+        }
+
+        function normalizeFolderName(value, fallback) {
+            const clean = (value || '').trim().replace(/[\\/]+/g, ' ').replace(/\s{2,}/g, ' ');
+            return clean || fallback;
+        }
+
+        function getCurrentSetPayload() {
+            return {
+                text: textOutput.value,
+                prefs: {
+                    chunkMode: chunkModeSelect.value,
+                    sequenceMode: sequenceModeSelect.value,
+                    rememberHints: rememberHintsCheckbox.checked,
+                    saveProgress: saveProgressCheckbox.checked,
+                    repeatMistakes: repeatMistakesCheckbox.checked,
+                    cleanBeforeStart: cleanBeforeStartCheckbox.checked
+                }
+            };
+        }
+
+        function saveCurrentSet() {
+            const text = textOutput.value.trim();
+            if (!text) {
+                showToast('Nothing to save');
+                return;
+            }
+
+            const defaultName = (text.split('\n').find(Boolean) || 'New Set').trim().slice(0, 48);
+            const folder = normalizeFolderName(window.prompt('Folder name?', 'My Sets'), 'My Sets');
+            if (!folder) return;
+            const subfolderInput = window.prompt('Subfolder name? (optional)', '');
+            if (subfolderInput === null) return;
+            const subfolder = normalizeFolderName(subfolderInput, '');
+            const nameInput = window.prompt('Set name?', defaultName);
+            if (nameInput === null) return;
+            const name = normalizeFolderName(nameInput, defaultName);
+
+            const items = getLibrary();
+            const existingIndex = items.findIndex(item =>
+                item.folder === folder &&
+                (item.subfolder || '') === subfolder &&
+                item.name.toLowerCase() === name.toLowerCase()
+            );
+
+            const payload = {
+                id: existingIndex >= 0 ? items[existingIndex].id : `set_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                folder,
+                subfolder,
+                name,
+                updatedAt: new Date().toISOString(),
+                ...getCurrentSetPayload()
+            };
+
+            if (existingIndex >= 0) {
+                if (!window.confirm('A set with this name already exists here. Replace it?')) return;
+                payload.createdAt = items[existingIndex].createdAt || payload.updatedAt;
+                items[existingIndex] = payload;
+            } else {
+                payload.createdAt = payload.updatedAt;
+                items.push(payload);
+            }
+
+            items.sort((a, b) =>
+                `${a.folder}/${a.subfolder || ''}/${a.name}`.localeCompare(`${b.folder}/${b.subfolder || ''}/${b.name}`)
+            );
+            saveLibrary(items);
+            renderLibrary();
+            showToast('Set saved');
+        }
+
+        function applySavedSet(item, autoStart = false) {
+            textOutput.value = item.text || '';
+            persistText();
+            if (item.prefs) {
+                chunkModeSelect.value = item.prefs.chunkMode || chunkModeSelect.value;
+                sequenceModeSelect.value = item.prefs.sequenceMode || sequenceModeSelect.value;
+                rememberHintsCheckbox.checked = typeof item.prefs.rememberHints === 'boolean' ? item.prefs.rememberHints : rememberHintsCheckbox.checked;
+                saveProgressCheckbox.checked = typeof item.prefs.saveProgress === 'boolean' ? item.prefs.saveProgress : saveProgressCheckbox.checked;
+                repeatMistakesCheckbox.checked = typeof item.prefs.repeatMistakes === 'boolean' ? item.prefs.repeatMistakes : repeatMistakesCheckbox.checked;
+                cleanBeforeStartCheckbox.checked = typeof item.prefs.cleanBeforeStart === 'boolean' ? item.prefs.cleanBeforeStart : cleanBeforeStartCheckbox.checked;
+                savePreferences();
+            }
+            updateTextStats();
+            closeLibraryModal();
+            showToast(`${item.name} loaded`);
+            if (autoStart) startGameFromText();
+        }
+
+        function deleteSavedSet(id) {
+            const items = getLibrary();
+            const target = items.find(item => item.id === id);
+            if (!target) return;
+            if (!window.confirm(`Delete "${target.name}"?`)) return;
+            saveLibrary(items.filter(item => item.id !== id));
+            renderLibrary();
+            showToast('Set deleted');
+        }
+
+        function renderLibrary() {
+            const items = getLibrary();
+            libraryCount.textContent = `${items.length} saved`;
+            if (!items.length) {
+                libraryList.innerHTML = '<div class="text-sm text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-6 text-center">No saved sets yet. Use Export to back up your in-app memory.</div>';
+                return;
+            }
+
+            const grouped = new Map();
+            items.forEach(item => {
+                const folderKey = item.folder || 'My Sets';
+                const subfolderKey = item.subfolder || '';
+                if (!grouped.has(folderKey)) grouped.set(folderKey, new Map());
+                const sub = grouped.get(folderKey);
+                if (!sub.has(subfolderKey)) sub.set(subfolderKey, []);
+                sub.get(subfolderKey).push(item);
+            });
+
+            libraryList.innerHTML = [...grouped.entries()].map(([folder, subMap]) => {
+                const subSections = [...subMap.entries()].map(([subfolder, list]) => {
+                    const title = subfolder || 'General';
+                    const cards = list.map(item => `
+                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/70 p-3 flex flex-col gap-3">
+                            <div class="min-w-0">
+                                <div class="font-semibold text-slate-800 dark:text-slate-100 truncate">${escapeHtml(item.name)}</div>
+                                <div class="text-xs text-slate-500 dark:text-slate-400">${new Date(item.updatedAt || item.createdAt || Date.now()).toLocaleString()}</div>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <button data-load-id="${item.id}" class="px-3 py-2 rounded-xl bg-sky-100 dark:bg-sky-500/20 text-sky-800 dark:text-sky-300 text-sm font-medium">Load</button>
+                                <button data-play-id="${item.id}" class="px-3 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium">Play</button>
+                                <button data-delete-id="${item.id}" class="px-3 py-2 rounded-xl bg-rose-100 dark:bg-rose-500/20 text-rose-800 dark:text-rose-300 text-sm font-medium">Delete</button>
+                            </div>
+                        </div>
+                    `).join('');
+                    return `
+                        <section class="space-y-3">
+                            <div class="flex items-center gap-2">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">${escapeHtml(title)}</span>
+                                <span class="text-xs text-slate-400">${list.length}</span>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">${cards}</div>
+                        </section>
+                    `;
+                }).join('');
+
+                return `
+                    <section class="rounded-3xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-4 space-y-4">
+                        <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">📁 ${escapeHtml(folder)}</div>
+                        ${subSections}
+                    </section>
+                `;
+            }).join('');
+
+            libraryList.querySelectorAll('[data-load-id]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const item = getLibrary().find(entry => entry.id === btn.dataset.loadId);
+                    if (item) applySavedSet(item, false);
+                });
+            });
+
+            libraryList.querySelectorAll('[data-play-id]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const item = getLibrary().find(entry => entry.id === btn.dataset.playId);
+                    if (item) applySavedSet(item, true);
+                });
+            });
+
+            libraryList.querySelectorAll('[data-delete-id]').forEach(btn => {
+                btn.addEventListener('click', () => deleteSavedSet(btn.dataset.deleteId));
+            });
+        }
+
+        function openLibraryModal() {
+            renderLibrary();
+            libraryModal.classList.remove('hidden');
+        }
+
+        function closeLibraryModal() {
+            libraryModal.classList.add('hidden');
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+
         function showStatus(message) {
             statusText.textContent = message;
             statusContainer.classList.remove('hidden');
@@ -852,14 +1350,22 @@
 
         function applySavedTheme() {
             const theme = localStorage.getItem(STORAGE_KEYS.theme) || 'light';
-            document.documentElement.classList.toggle('dark', theme === 'dark');
-            document.body.classList.toggle('dark', theme === 'dark');
-            themeToggleBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
+            const isDark = theme === 'dark';
+            document.documentElement.classList.toggle('dark', isDark);
+            document.body.classList.toggle('dark', isDark);
+            document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+            document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+            document.body.style.colorScheme = isDark ? 'dark' : 'light';
+            themeToggleBtn.textContent = isDark ? '☀️' : '🌙';
         }
 
         function toggleTheme() {
-            const isDark = document.documentElement.classList.toggle('dark');
+            const isDark = !document.documentElement.classList.contains('dark');
+            document.documentElement.classList.toggle('dark', isDark);
             document.body.classList.toggle('dark', isDark);
+            document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+            document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+            document.body.style.colorScheme = isDark ? 'dark' : 'light';
             localStorage.setItem(STORAGE_KEYS.theme, isDark ? 'dark' : 'light');
             themeToggleBtn.textContent = isDark ? '☀️' : '🌙';
         }
