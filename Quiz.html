@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Text Trainer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        .drag-over { border-color: #3b82f6 !important; background-color: #eff6ff !important; }
+        .dark .drag-over { border-color: #60a5fa !important; background-color: rgba(59, 130, 246, 0.1) !important; }
+        .loader {
+            border: 3px solid #e5e7eb;
+            border-top: 3px solid #2563eb;
+            border-radius: 9999px;
+            width: 22px;
+            height: 22px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        .dark .loader { border-color: #334155; border-top-color: #3b82f6; }
+        .hidden-answer { color: transparent; background: linear-gradient(90deg, rgba(209,213,219,.28), rgba(229,231,235,.65), rgba(209,213,219,.28)); border-radius: 10px; }
+        .hidden-answer .always-visible { color: #374151 !important; }
+        
+        .dark .hidden-answer { background: linear-gradient(90deg, rgba(30,41,59,.6), rgba(51,65,85,.8), rgba(30,41,59,.6)); }
+        .dark .hidden-answer .always-visible { color: #cbd5e1 !important; }
+        
+        .toast-show { animation: toast-in .25s ease-out forwards; }
+        .pulse-soft { animation: pulse-soft 1.3s ease-in-out infinite; }
+        .prompt-card { background: linear-gradient(135deg, rgba(251,191,36,.12), rgba(245,158,11,.18)); border: 1px solid rgba(245,158,11,.32); }
+        .dark .prompt-card { background: linear-gradient(135deg, rgba(245,158,11,.1), rgba(217,119,6,.15)); border: 1px solid rgba(245,158,11,.2); }
+        .tap-hint { box-shadow: inset 0 0 0 1px rgba(59,130,246,.12); }
+        .dark .tap-hint { box-shadow: inset 0 0 0 1px rgba(96,165,250,.2); }
+        
+        @keyframes spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
+        @keyframes toast-in { from { opacity: 0; transform: translateY(12px);} to { opacity: 1; transform: translateY(0);} }
+        @keyframes pulse-soft { 0%,100% { transform: scale(1);} 50% { transform: scale(1.02);} }
+        
+        input[type="checkbox"] { accent-color: #2563eb; }
+        .dark input[type="checkbox"] { accent-color: #3b82f6; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-[#0b1120] min-h-screen font-sans text-slate-800 dark:text-slate-200 p-4 md:p-8 transition-colors duration-300">
+    <div id="toast" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] bg-slate-900 dark:bg-white dark:text-slate-900 text-white px-4 py-2 rounded-full shadow-xl text-sm toast-show"></div>
+
+    <div id="main-view" class="max-w-6xl mx-auto card bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 transition-colors">
+        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-900 dark:to-indigo-900 p-6 md:p-8 text-white">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold">Text Trainer</h1>
+                </div>
+                <button id="theme-toggle-btn" class="self-start md:self-auto bg-white/15 hover:bg-white/25 border border-white/20 px-4 py-2 rounded-xl text-sm font-semibold transition">🌙</button>
+            </div>
+        </div>
+
+        <div class="p-4 md:p-5 grid grid-cols-1 xl:grid-cols-[1.05fr_1.35fr] gap-4">
+            <div class="space-y-4">
+                <div class="panel bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-5 shadow-sm">
+                    <div class="flex items-center justify-between gap-3 mb-3">
+                        <h2 class="text-lg font-semibold">Input</h2>
+                        <span id="file-badge" class="text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-full">No file</span>
+                    </div>
+
+                    <div id="drop-zone" class="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-2xl p-8 text-center transition cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800">
+                        <div class="text-4xl mb-2">📄</div>
+                        <p class="font-semibold">Drop file</p>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Tap to select</p>
+                        <input type="file" id="file-input" class="hidden" accept=".pdf,.docx,.doc,.txt,image/*" multiple>
+                    </div>
+
+                    <div id="status-container" class="hidden mt-4 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-500/20 p-3 rounded-2xl flex items-center gap-3 text-sm font-medium">
+                        <div class="loader"></div>
+                        <span id="status-text">Processing...</span>
+                    </div>
+                </div>
+
+                <div class="panel bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-4 shadow-sm space-y-3">
+                    <div class="flex items-center justify-between gap-4 flex-wrap">
+                        <h2 class="text-lg font-semibold">Setup</h2>
+                        <button id="restore-btn" class="text-sm bg-amber-100 dark:bg-amber-500/20 hover:bg-amber-200 dark:hover:bg-amber-500/30 text-amber-800 dark:text-amber-300 px-3 py-2 rounded-xl transition">Restore</button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <label class="space-y-2">
+                            <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Chunk</span>
+                            <select id="chunk-mode-select" class="w-full rounded-xl border border-slate-300 dark:border-slate-600 px-3 py-2 bg-white dark:bg-slate-900 focus:outline-none focus:border-blue-500">
+                                <option value="line">Line</option>
+                                <option value="sentence">Sentence</option>
+                            </select>
+                        </label>
+                        <label class="space-y-2">
+                            <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Order</span>
+                            <select id="sequence-mode-select" class="w-full rounded-xl border border-slate-300 dark:border-slate-600 px-3 py-2 bg-white dark:bg-slate-900 focus:outline-none focus:border-blue-500">
+                                <option value="linear">Linear</option>
+                                <option value="category">Category</option>
+                                <option value="shuffle">Shuffle</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                        <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+                            <input id="remember-hints-checkbox" type="checkbox" checked>
+                            <span>Hints</span>
+                        </label>
+                        <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+                            <input id="save-progress-checkbox" type="checkbox" checked>
+                            <span>Save</span>
+                        </label>
+                        <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+                            <input id="repeat-mistakes-checkbox" type="checkbox" checked>
+                            <span>Repeat</span>
+                        </label>
+                        <label class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+                            <input id="clean-before-start-checkbox" type="checkbox" checked>
+                            <span>Clean</span>
+                        </label>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <button id="clean-text-btn" class="bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-600 px-4 py-3 rounded-xl font-semibold transition">Clean</button>
+                        <button id="copy-btn" class="bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-600 px-4 py-3 rounded-xl font-semibold transition">Copy</button>
+                        <button id="download-btn" class="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-500/30 px-4 py-3 rounded-xl font-semibold transition">Download</button>
+                        <button id="start-game-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-xl font-semibold shadow-lg transition">Start</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-4 shadow-sm flex flex-col gap-3">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-lg font-semibold">Text</h2>
+                    </div>
+                    <div class="flex flex-wrap gap-2 text-xs">
+                        <span id="stat-lines" class="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-full">L 0</span>
+                        <span id="stat-words" class="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-full">W 0</span>
+                        <span id="stat-chars" class="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-full">C 0</span>
+                        <span id="stat-reading" class="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-full">R 0m</span>
+                    </div>
+                </div>
+                <textarea id="text-output" class="w-full min-h-[420px] md:min-h-[520px] p-4 bg-white dark:bg-[#0f172a] border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y text-sm leading-6" placeholder="Paste or extract text..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-view" class="hidden fixed inset-0 z-50 flex flex-col bg-slate-50 dark:bg-[#0b1120]">
+        
+        <div class="flex-none bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/80 sticky top-0 z-10">
+            <div class="w-full h-1 bg-slate-100 dark:bg-slate-800">
+                <div id="progress-bar" class="h-full bg-blue-500 transition-all duration-300" style="width:0%"></div>
+            </div>
+            
+            <div class="max-w-5xl mx-auto px-3 md:px-5 py-2 flex items-center justify-between gap-2 text-[11px] md:text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <div class="flex items-center gap-3 md:gap-5 flex-wrap">
+                    <span id="mode-label" class="hidden sm:inline font-bold text-slate-400 dark:text-slate-500"></span>
+                    
+                    <div class="flex gap-1.5 items-center text-slate-700 dark:text-slate-300" title="Done / Total">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+                        <span id="progress-label">0 / 0</span>
+                    </div>
+                    
+                    <div class="flex gap-1.5 items-center text-emerald-600 dark:text-emerald-400" title="Accuracy">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                        <span id="accuracy-label">0%</span>
+                    </div>
+                    
+                    <div class="flex gap-1.5 items-center text-blue-600 dark:text-blue-400" title="Remaining">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span id="remaining-label">0</span>
+                    </div>
+                    
+                    <div class="flex gap-1.5 items-center text-rose-600 dark:text-rose-400" title="Mistakes">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        <span id="mistake-label">0</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 shrink-0 ml-auto">
+                    <button id="restart-round-btn" class="p-1 text-slate-400 dark:text-slate-500 hover:text-amber-500 dark:hover:text-amber-400 transition" title="Restart Round">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    </button>
+                    <button id="exit-game-btn" class="p-1 text-slate-400 dark:text-slate-500 hover:text-rose-500 dark:hover:text-rose-400 transition" title="Exit Game">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="game-area" class="flex-1 overflow-y-auto px-3 md:px-5 py-4 md:py-8">
+            <div class="game-shell max-w-5xl mx-auto bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 rounded-3xl shadow-xl dark:shadow-2xl dark:shadow-black/50 p-3 md:p-6">
+                <div id="game-text" class="text-sm md:text-base leading-8 select-none"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        const STORAGE_KEYS = {
+            text: 'ute_text_v2',
+            prefs: 'ute_prefs_v2',
+            game: 'ute_game_state_v2',
+            theme: 'ute_theme_v2'
+        };
+
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const fileBadge = document.getElementById('file-badge');
+        const textOutput = document.getElementById('text-output');
+        const statusContainer = document.getElementById('status-container');
+        const statusText = document.getElementById('status-text');
+        const copyBtn = document.getElementById('copy-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const cleanTextBtn = document.getElementById('clean-text-btn');
+        const themeToggleBtn = document.getElementById('theme-toggle-btn');
+        const restoreBtn = document.getElementById('restore-btn');
+
+        const chunkModeSelect = document.getElementById('chunk-mode-select');
+        const sequenceModeSelect = document.getElementById('sequence-mode-select');
+        const rememberHintsCheckbox = document.getElementById('remember-hints-checkbox');
+        const saveProgressCheckbox = document.getElementById('save-progress-checkbox');
+        const repeatMistakesCheckbox = document.getElementById('repeat-mistakes-checkbox');
+        const cleanBeforeStartCheckbox = document.getElementById('clean-before-start-checkbox');
+
+        const statLines = document.getElementById('stat-lines');
+        const statWords = document.getElementById('stat-words');
+        const statChars = document.getElementById('stat-chars');
+        const statReading = document.getElementById('stat-reading');
+
+        const mainView = document.getElementById('main-view');
+        const startGameBtn = document.getElementById('start-game-btn');
+        const gameView = document.getElementById('game-view');
+        const exitGameBtn = document.getElementById('exit-game-btn');
+        const restartRoundBtn = document.getElementById('restart-round-btn');
+        const gameArea = document.getElementById('game-area');
+        const gameText = document.getElementById('game-text');
+        const progressLabel = document.getElementById('progress-label');
+        const accuracyLabel = document.getElementById('accuracy-label');
+        const remainingLabel = document.getElementById('remaining-label');
+        const mistakeLabel = document.getElementById('mistake-label');
+        const modeLabel = document.getElementById('mode-label');
+        const progressBar = document.getElementById('progress-bar');
+        const toast = document.getElementById('toast');
+
+        let gameWords = [];
+        let activeSequence = [];
+        let currentSeqIndex = -1;
+        let currentWordIndex = -1;
+        let pendingAnswerIndex = -1;
+        let tesseractWorker = null;
+
+        const gameStats = {
+            total: 0,
+            yes: 0,
+            no: 0,
+            reveal: 0,
+            mistakes: new Set(),
+            round: 1
+        };
+
+        init();
+
+        function init() {
+            applySavedTheme();
+            loadPreferences();
+            loadSavedText();
+            updateTextStats();
+            attachEvents();
+        }
+
+        function attachEvents() {
+            dropZone.addEventListener('click', () => fileInput.click());
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                if (e.dataTransfer.files?.length) processFiles([...e.dataTransfer.files]);
+            });
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files?.length) processFiles([...e.target.files]);
+            });
+
+            textOutput.addEventListener('input', () => {
+                updateTextStats();
+                persistText();
+            });
+
+            [chunkModeSelect, sequenceModeSelect, rememberHintsCheckbox, saveProgressCheckbox, repeatMistakesCheckbox, cleanBeforeStartCheckbox]
+                .forEach(el => el.addEventListener('change', savePreferences));
+
+            themeToggleBtn.addEventListener('click', toggleTheme);
+            cleanTextBtn.addEventListener('click', () => {
+                textOutput.value = cleanText(textOutput.value);
+                updateTextStats();
+                persistText();
+                showToast('Text cleaned');
+            });
+
+            copyBtn.addEventListener('click', async () => {
+                const text = textOutput.value.trim();
+                if (!text) return showToast('Nothing to copy');
+                try {
+                    await navigator.clipboard.writeText(text);
+                    showToast('Copied to clipboard');
+                } catch {
+                    textOutput.select();
+                    document.execCommand('copy');
+                    showToast('Copied to clipboard');
+                }
+            });
+
+            downloadBtn.addEventListener('click', () => {
+                const text = textOutput.value.trim();
+                if (!text) return showToast('Nothing to download');
+                const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'extracted_text.txt';
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast('TXT downloaded');
+            });
+
+            startGameBtn.addEventListener('click', startGameFromText);
+            restoreBtn.addEventListener('click', restoreSavedGame);
+            exitGameBtn.addEventListener('click', exitGame);
+            
+            restartRoundBtn.addEventListener('click', () => {
+                startNewRound();
+                showToast('Round restarted');
+            });
+
+            gameArea.addEventListener('click', handleGameTap);
+
+            document.addEventListener('keydown', (e) => {
+                if (gameView.classList.contains('hidden')) return;
+                if (e.key === 'Escape') return exitGame();
+                if (e.key === 'n' || e.key === 'N') return startNewRound();
+                if (e.key === 'm' || e.key === 'M') { 
+                    startNewRound();
+                    showToast('Round restarted');
+                    return; 
+                }
+                if (e.key === 'r' || e.key === 'R') return handleAdvanceTap();
+                if (e.key === ' ' || e.code === 'Space' || e.key === 'Enter' || e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    return handleAdvanceTap();
+                }
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    return handleAdvanceTap();
+                }
+            });
+        }
+
+        function handleGameTap(e) {
+            if (e.target.closest('button')) return;
+            const tappedPending = e.target.closest('#pending-answer-word');
+            if (tappedPending) return markPendingNo();
+            handleAdvanceTap();
+        }
+
+        function handleAdvanceTap() {
+            if (pendingAnswerIndex !== -1) {
+                markPendingYes();
+            }
+            if (currentWordIndex === -1) return;
+            revealAndQueueNext();
+        }
+
+        function cleanText(text) {
+            return text
+                .replace(/\r/g, '')
+                .replace(/\u00A0/g, ' ')
+                .replace(/[ \t]{2,}/g, ' ')
+                .replace(/\n[ \t]+/g, '\n')
+                .replace(/^[ \t]+/gm, '')
+                .replace(/^(page|পৃষ্ঠা)\s*\d+\s*$/gim, '')
+                .replace(/\n{3,}/g, '\n\n')
+                .trim();
+        }
+
+        function splitIntoChunks(text, mode) {
+            const normalized = text.replace(/\r/g, '').trim();
+            if (!normalized) return [];
+            if (mode === 'sentence') {
+                return normalized
+                    .split(/(?<=[.!?।])\s+|\n+/)
+                    .map(s => s.trim())
+                    .filter(Boolean)
+                    .map((item, idx) => ({ text: item, raw: item, state: 'hidden', level: detectLevel(item), index: idx }));
+            }
+
+            return normalized
+                .split('\n')
+                .map(line => line.replace(/[ \t]+$/g, ''))
+                .map((line, idx) => line.trim().length === 0
+                    ? { text: '', raw: '', state: 'newline', level: 0, index: idx }
+                    : { text: line, raw: line, state: 'hidden', level: detectLevel(line), index: idx })
+        }
+
+        function detectLevel(line) {
+            if (/^\s*[-*•+]/.test(line)) return 2;
+            if (/^\s*\d+[.)]/.test(line)) return 1;
+            return /^\s/.test(line) ? 2 : 1;
+        }
+
+        function startGameFromText() {
+            let text = textOutput.value.trim();
+            if (!text) return showToast('Please add some text first');
+            if (cleanBeforeStartCheckbox.checked) {
+                text = cleanText(text);
+                textOutput.value = text;
+                updateTextStats();
+                persistText();
+            }
+
+            gameWords = splitIntoChunks(text, chunkModeSelect.value);
+            if (!gameWords.some(w => w.state === 'hidden')) return showToast('No usable lines found');
+
+            resetStats();
+            gameStats.total = gameWords.filter(w => w.state !== 'newline').length;
+            openGameView();
+            startNewRound();
+            showToast('Game started');
+        }
+
+        function resetStats() {
+            gameStats.total = 0;
+            gameStats.yes = 0;
+            gameStats.no = 0;
+            gameStats.reveal = 0;
+            gameStats.mistakes = new Set();
+            gameStats.round = 1;
+        }
+
+        function openGameView() {
+            mainView.classList.add('hidden');
+            gameView.classList.remove('hidden');
+            updateModeLabel();
+        }
+
+        function exitGame() {
+            gameView.classList.add('hidden');
+            mainView.classList.remove('hidden');
+            persistGameState();
+        }
+
+        function updateModeLabel() {
+            const seqText = sequenceModeSelect.value[0].toUpperCase() + sequenceModeSelect.value.slice(1);
+            const chunkText = chunkModeSelect.value[0].toUpperCase() + chunkModeSelect.value.slice(1);
+            modeLabel.textContent = `${seqText} / ${chunkText}`;
+        }
+
+        function generateSequence(source = null) {
+            const indices = [];
+            const list = source || gameWords;
+            list.forEach((w, i) => {
+                if (w.state === 'hidden') indices.push(i);
+            });
+
+            if (sequenceModeSelect.value === 'shuffle') {
+                return shuffle(indices);
+            }
+            if (sequenceModeSelect.value === 'category') {
+                const titles = indices.filter(i => gameWords[i].level === 1);
+                const children = indices.filter(i => gameWords[i].level !== 1);
+                return titles.concat(children);
+            }
+            return indices;
+        }
+
+        function shuffle(arr) {
+            const cloned = [...arr];
+            for (let i = cloned.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [cloned[i], cloned[j]] = [cloned[j], cloned[i]];
+            }
+            return cloned;
+        }
+
+        function startNewRound() {
+            let remaining = 0;
+            gameWords.forEach(w => {
+                if (w.state !== 'newline' && w.state !== 'yes') {
+                    w.state = 'hidden';
+                    remaining++;
+                }
+            });
+
+            if (remaining === 0) {
+                renderCompletion('Done 🎉');
+                persistGameState();
+                return;
+            }
+
+            gameStats.mistakes.clear();
+            
+            activeSequence = generateSequence();
+            currentSeqIndex = -1;
+            currentWordIndex = -1;
+            pendingAnswerIndex = -1;
+            queueNextCurrent();
+            renderGame();
+            updateStatsUI();
+            persistGameState();
+            gameStats.round += 1;
+        }
+
+        function revealCurrent() {
+            handleAdvanceTap();
+        }
+
+        function queueNextCurrent() {
+            while (true) {
+                currentSeqIndex += 1;
+                if (currentSeqIndex >= activeSequence.length) {
+                    currentWordIndex = -1;
+                    if (pendingAnswerIndex === -1) {
+                        if (repeatMistakesCheckbox.checked || getRemainingCount() === 0) {
+                            startNewRound();
+                        } else {
+                            renderCompletion('Round Complete');
+                            persistGameState();
+                        }
+                        return false;
+                    }
+                    return false;
+                }
+
+                currentWordIndex = activeSequence[currentSeqIndex];
+                const current = gameWords[currentWordIndex];
+                if (!current || current.state === 'newline' || current.state === 'yes' || current.state === 'no') {
+                    continue;
+                }
+                current.state = 'prompt';
+                return true;
+            }
+        }
+
+        function revealAndQueueNext() {
+            const current = gameWords[currentWordIndex];
+            if (!current) return;
+            if (current.state !== 'prompt') return;
+
+            current.state = 'revealed';
+            pendingAnswerIndex = currentWordIndex;
+            queueNextCurrent();
+            renderGame();
+            updateStatsUI();
+            persistGameState();
+        }
+
+        function markPendingYes() {
+            if (pendingAnswerIndex === -1) return;
+            const pending = gameWords[pendingAnswerIndex];
+            if (!pending || pending.state !== 'revealed') {
+                pendingAnswerIndex = -1;
+                return;
+            }
+            pending.state = 'yes';
+            gameStats.yes += 1;
+            pendingAnswerIndex = -1;
+            renderGame();
+            updateStatsUI();
+            persistGameState();
+        }
+
+        function markPendingNo() {
+            if (pendingAnswerIndex === -1) return;
+            const pending = gameWords[pendingAnswerIndex];
+            if (!pending || pending.state !== 'revealed') {
+                pendingAnswerIndex = -1;
+                return;
+            }
+            pending.state = 'no';
+            gameStats.no += 1;
+            gameStats.reveal += 1;
+            gameStats.mistakes.add(pendingAnswerIndex);
+            pendingAnswerIndex = -1;
+            renderGame();
+            updateStatsUI();
+            persistGameState();
+        }
+
+        function renderGame() {
+            gameText.innerHTML = gameWords.map((w, i) => {
+                if (w.state === 'newline') return '<div class="h-4"></div>';
+                const indentClass = w.level === 2 ? 'ml-5 md:ml-10' : '';
+                const common = `mb-2 p-2 md:p-3 rounded-2xl transition-all duration-300 ${indentClass}`;
+                const processed = formatDisplayText(w.text);
+
+                if (w.state === 'yes') return `<div class="${common} bg-emerald-50 dark:bg-emerald-500/10 text-emerald-900 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-500/20">${processed}</div>`;
+                if (w.state === 'no') return `<div class="${common} bg-rose-50 dark:bg-rose-500/10 text-rose-800 dark:text-rose-300 border border-rose-100 dark:border-rose-500/20">${processed}</div>`;
+                if (w.state === 'revealed') return `<div id="pending-answer-word" class="${common} tap-hint bg-blue-50 dark:bg-blue-500/10 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30 shadow-md pulse-soft">${processed}</div>`;
+                if (w.state === 'prompt') return `<div id="current-prompt-word" class="${common} prompt-card dark:border-amber-500/30 dark:bg-amber-500/10 tap-hint shadow-md pulse-soft"><div class="hidden-answer border border-transparent">${processed}</div></div>`;
+                return `<div class="${common} hidden-answer border border-slate-100 dark:border-slate-700/50">${processed}</div>`;
+            }).join('');
+
+            const focusEl = document.getElementById('current-prompt-word') || document.getElementById('pending-answer-word');
+            if (focusEl) focusEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function formatDisplayText(text) {
+            if (!rememberHintsCheckbox.checked) {
+                return escapeHtml(text);
+            }
+            return escapeHtml(text).replace(/#([^#]+)#/g, '<span class="always-visible font-semibold">$1</span>');
+        }
+
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function updateStatsUI() {
+            const total = gameWords.filter(w => w.state !== 'newline').length;
+            const done = gameWords.filter(w => w.state === 'yes').length;
+            const remaining = getRemainingCount();
+            const answered = gameStats.yes + gameStats.no;
+            const accuracy = answered ? Math.round((gameStats.yes / answered) * 100) : 0;
+
+            progressLabel.textContent = `${done} / ${total}`;
+            accuracyLabel.textContent = `${accuracy}%`;
+            remainingLabel.textContent = `${remaining}`;
+            mistakeLabel.textContent = `${gameStats.mistakes.size}`;
+            progressBar.style.width = total ? `${(done / total) * 100}%` : '0%';
+            updateModeLabel();
+        }
+
+        function getRemainingCount() {
+            return gameWords.filter(w => w.state !== 'newline' && w.state !== 'yes').length;
+        }
+
+        function renderCompletion(message) {
+            gameText.innerHTML = `
+                <div class="text-center py-16">
+                    <div class="text-5xl mb-4">🎉</div>
+                    <div class="text-2xl font-bold text-emerald-700 dark:text-emerald-400">${message}</div>
+                    <p class="mt-3 text-slate-500 dark:text-slate-400">Accuracy: ${accuracyLabel.textContent} • Mistakes: ${gameStats.mistakes.size}</p>
+                </div>`;
+            updateStatsUI();
+        }
+
+        function updateTextStats() {
+            const text = textOutput.value;
+            const lines = text ? text.split(/\n/).filter(Boolean).length : 0;
+            const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+            const chars = text.length;
+            const readingMin = Math.max(0, Math.ceil(words / 200));
+            statLines.textContent = `L ${lines}`;
+            statWords.textContent = `W ${words}`;
+            statChars.textContent = `C ${chars}`;
+            statReading.textContent = `R ${readingMin}m`;
+        }
+
+        async function processFiles(files) {
+            if (!files?.length) return;
+            const names = files.map(f => f.name);
+            fileBadge.textContent = files.length === 1 ? names[0] : `${files.length} files selected`;
+            if (files.length > 1 && !textOutput.value.trim()) textOutput.value = '';
+
+            for (const file of files) {
+                await processFile(file);
+            }
+            updateTextStats();
+            persistText();
+            showToast(`${files.length} file(s) processed`);
+        }
+
+        async function processFile(file) {
+            const ext = (file.name.split('.').pop() || '').toLowerCase();
+            showStatus(`Reading ${file.name}...`);
+            try {
+                if (ext === 'txt') await extractFromTxt(file);
+                else if (ext === 'pdf') await extractFromPdf(file);
+                else if (ext === 'docx') await extractFromDocx(file);
+                else if (ext === 'doc') throw new Error('Legacy .doc is not supported in-browser. Convert it to .docx or PDF.');
+                else if (['png', 'jpg', 'jpeg', 'bmp', 'webp'].includes(ext)) await extractFromImage(file);
+                else throw new Error(`Unsupported file type: .${ext}`);
+            } catch (error) {
+                console.error(error);
+                showToast(error.message || 'Failed to process file');
+            } finally {
+                hideStatus();
+                fileInput.value = '';
+            }
+        }
+
+        function appendText(txt) {
+            const clean = txt?.trim();
+            if (!clean) return;
+            textOutput.value = textOutput.value.trim() ? `${textOutput.value.trim()}\n\n${clean}` : clean;
+        }
+
+        function extractFromTxt(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => { appendText(e.target.result); resolve(); };
+                reader.onerror = reject;
+                reader.readAsText(file);
+            });
+        }
+
+        async function extractFromPdf(file) {
+            const pdf = await pdfjsLib.getDocument(await file.arrayBuffer()).promise;
+            let fullText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                showStatus(`Extracting PDF page ${i}/${pdf.numPages}...`);
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                fullText += content.items.map(item => item.str).join(' ') + '\n';
+            }
+            appendText(fullText);
+        }
+
+        async function extractFromDocx(file) {
+            showStatus('Extracting Word document...');
+            const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+            appendText(result.value || '');
+        }
+
+        async function getOCRWorker() {
+            if (!tesseractWorker) {
+                tesseractWorker = await Tesseract.createWorker('eng+ben', 1, {
+                    logger: message => {
+                        if (message.status === 'recognizing text') {
+                            showStatus(`OCR: ${Math.round((message.progress || 0) * 100)}%`);
+                        }
+                    }
+                });
+            }
+            return tesseractWorker;
+        }
+
+        async function extractFromImage(file) {
+            showStatus('Running OCR on image...');
+            const worker = await getOCRWorker();
+            const { data: { text } } = await worker.recognize(file);
+            appendText(text || '');
+        }
+
+        function showStatus(message) {
+            statusText.textContent = message;
+            statusContainer.classList.remove('hidden');
+        }
+
+        function hideStatus() {
+            statusContainer.classList.add('hidden');
+        }
+
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.remove('hidden');
+            toast.classList.add('toast-show');
+            clearTimeout(showToast._timer);
+            showToast._timer = setTimeout(() => toast.classList.add('hidden'), 1800);
+        }
+
+        function persistText() {
+            localStorage.setItem(STORAGE_KEYS.text, textOutput.value);
+        }
+
+        function loadSavedText() {
+            const savedText = localStorage.getItem(STORAGE_KEYS.text);
+            if (savedText) textOutput.value = savedText;
+        }
+
+        function savePreferences() {
+            const prefs = {
+                chunkMode: chunkModeSelect.value,
+                sequenceMode: sequenceModeSelect.value,
+                rememberHints: rememberHintsCheckbox.checked,
+                saveProgress: saveProgressCheckbox.checked,
+                repeatMistakes: repeatMistakesCheckbox.checked,
+                cleanBeforeStart: cleanBeforeStartCheckbox.checked
+            };
+            localStorage.setItem(STORAGE_KEYS.prefs, JSON.stringify(prefs));
+            updateModeLabel();
+        }
+
+        function loadPreferences() {
+            const prefs = JSON.parse(localStorage.getItem(STORAGE_KEYS.prefs) || '{}');
+            if (prefs.chunkMode) chunkModeSelect.value = prefs.chunkMode;
+            if (prefs.sequenceMode) sequenceModeSelect.value = prefs.sequenceMode;
+            if (typeof prefs.rememberHints === 'boolean') rememberHintsCheckbox.checked = prefs.rememberHints;
+            if (typeof prefs.saveProgress === 'boolean') saveProgressCheckbox.checked = prefs.saveProgress;
+            if (typeof prefs.repeatMistakes === 'boolean') repeatMistakesCheckbox.checked = prefs.repeatMistakes;
+            if (typeof prefs.cleanBeforeStart === 'boolean') cleanBeforeStartCheckbox.checked = prefs.cleanBeforeStart;
+            updateModeLabel();
+        }
+
+        function persistGameState() {
+            if (!saveProgressCheckbox.checked) return;
+            const state = {
+                gameWords,
+                activeSequence,
+                currentSeqIndex,
+                currentWordIndex,
+                pendingAnswerIndex,
+                stats: {
+                    total: gameStats.total,
+                    yes: gameStats.yes,
+                    no: gameStats.no,
+                    reveal: gameStats.reveal,
+                    mistakes: [...gameStats.mistakes],
+                    round: gameStats.round
+                },
+                prefs: {
+                    chunkMode: chunkModeSelect.value,
+                    sequenceMode: sequenceModeSelect.value
+                }
+            };
+            localStorage.setItem(STORAGE_KEYS.game, JSON.stringify(state));
+        }
+
+        function restoreSavedGame() {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEYS.game) || 'null');
+            if (!saved?.gameWords?.length) return showToast('No saved game found');
+            gameWords = saved.gameWords;
+            activeSequence = saved.activeSequence || [];
+            currentSeqIndex = typeof saved.currentSeqIndex === 'number' ? saved.currentSeqIndex : -1;
+            currentWordIndex = typeof saved.currentWordIndex === 'number' ? saved.currentWordIndex : -1;
+            pendingAnswerIndex = typeof saved.pendingAnswerIndex === 'number' ? saved.pendingAnswerIndex : -1;
+            chunkModeSelect.value = saved.prefs?.chunkMode || chunkModeSelect.value;
+            sequenceModeSelect.value = saved.prefs?.sequenceMode || sequenceModeSelect.value;
+            resetStats();
+            gameStats.total = saved.stats?.total || gameWords.filter(w => w.state !== 'newline').length;
+            gameStats.yes = saved.stats?.yes || 0;
+            gameStats.no = saved.stats?.no || 0;
+            gameStats.reveal = saved.stats?.reveal || 0;
+            gameStats.mistakes = new Set(saved.stats?.mistakes || []);
+            gameStats.round = saved.stats?.round || 1;
+            openGameView();
+            renderGame();
+            updateStatsUI();
+            showToast('Saved game restored');
+        }
+
+        function applySavedTheme() {
+            const theme = localStorage.getItem(STORAGE_KEYS.theme) || 'light';
+            document.documentElement.classList.toggle('dark', theme === 'dark');
+            document.body.classList.toggle('dark', theme === 'dark');
+            themeToggleBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
+        }
+
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            document.body.classList.toggle('dark', isDark);
+            localStorage.setItem(STORAGE_KEYS.theme, isDark ? 'dark' : 'light');
+            themeToggleBtn.textContent = isDark ? '☀️' : '🌙';
+        }
+
+        window.addEventListener('beforeunload', async () => {
+            persistGameState();
+            if (tesseractWorker) {
+                try { await tesseractWorker.terminate(); } catch {}
+            }
+        });
+    </script>
+</body>
+</html>
