@@ -1,75 +1,410 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Pop the Balloons (Fixed Sound)</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Pop the Balloons</title>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(180deg, #bfe9ff, #eaf9ff);
+      touch-action: manipulation;
+      user-select: none;
+    }
+    .app {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    .top {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 20;
+      gap: 10px;
+    }
+    .pill, .btn {
+      background: rgba(255,255,255,0.92);
+      border: none;
+      border-radius: 999px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      padding: 10px 14px;
+      font-size: 16px;
+      font-weight: 800;
+      color: #223;
+    }
+    .centerText {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      top: 58px;
+      z-index: 15;
+      background: rgba(255,255,255,0.9);
+      padding: 10px 18px;
+      border-radius: 24px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      text-align: center;
+      min-width: 220px;
+    }
+    .word {
+      font-size: clamp(24px, 6vw, 40px);
+      font-weight: 900;
+      color: #233;
+      line-height: 1.1;
+    }
+    .sub {
+      margin-top: 4px;
+      font-size: clamp(14px, 3.5vw, 18px);
+      font-weight: 700;
+      color: #567;
+    }
+    .playArea {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+    .balloon {
+      position: absolute;
+      width: 110px;
+      height: 135px;
+      border-radius: 55% 55% 50% 50% / 48% 48% 58% 58%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 54px;
+      box-shadow: inset -12px -18px 18px rgba(0,0,0,0.08), 0 10px 20px rgba(0,0,0,0.10);
+      cursor: pointer;
+      transition: transform 0.08s linear;
+      animation: bob 2s ease-in-out infinite;
+      border: none;
+    }
+    .balloon::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -26px;
+      width: 2px;
+      height: 30px;
+      background: rgba(80,80,80,0.45);
+      transform: translateX(-50%);
+    }
+    .balloon.pop {
+      animation: none !important;
+      transform: scale(1.25);
+      opacity: 0;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+    .burst {
+      position: absolute;
+      pointer-events: none;
+      font-size: 26px;
+      animation: burst 650ms ease-out forwards;
+    }
+    .footer {
+      position: absolute;
+      left: 50%;
+      bottom: 14px;
+      transform: translateX(-50%);
+      z-index: 15;
+      font-size: 15px;
+      font-weight: 800;
+      color: #345;
+      background: rgba(255,255,255,0.85);
+      padding: 8px 14px;
+      border-radius: 999px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.10);
+      white-space: nowrap;
+    }
+    .tapOverlay {
+      position: absolute;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+      background: rgba(255,255,255,0.96);
+      color: #111;
+      font-weight: 900;
+      font-size: clamp(24px, 7vw, 48px);
+    }
+    .tapOverlay.hidden { display: none; }
+    .tapOverlayInner small {
+      display: block;
+      margin-top: 10px;
+      font-size: clamp(14px, 3.7vw, 18px);
+      font-weight: 700;
+      color: #555;
+    }
+    @keyframes bob {
+      0%,100% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+    }
+    @keyframes burst {
+      0% { transform: scale(0.5); opacity: 1; }
+      100% { transform: scale(1.7) translateY(-20px); opacity: 0; }
+    }
+  </style>
 </head>
 <body>
-<script>
-let soundOn = true;
-let voices = [];
-let speechUnlocked = false;
+  <div class="app">
+    <div class="top">
+      <div class="pill">⭐ <span id="score">0</span></div>
+      <div style="display:flex; gap:10px;">
+        <button id="soundBtn" class="btn">🔊 Sound</button>
+        <button id="newBtn" class="btn">🎈 New</button>
+      </div>
+    </div>
 
-function loadVoices() {
-  if (!("speechSynthesis" in window)) return;
-  voices = window.speechSynthesis.getVoices();
-}
+    <div class="centerText">
+      <div id="word" class="word">Pop!</div>
+      <div id="sub" class="sub">Tap a balloon</div>
+    </div>
 
-if ("speechSynthesis" in window) {
-  loadVoices();
-  window.speechSynthesis.onvoiceschanged = loadVoices;
-}
+    <div id="playArea" class="playArea"></div>
 
-function speak(text) {
-  if (!soundOn || !("speechSynthesis" in window) || !speechUnlocked) return;
+    <div class="footer">Big taps • simple words • no losing</div>
 
-  try {
-    window.speechSynthesis.cancel();
+    <div id="tapOverlay" class="tapOverlay">
+      <div class="tapOverlayInner">
+        Tap anywhere to start 🎈
+        <small>First tap enables sound on hosted pages</small>
+      </div>
+    </div>
+  </div>
 
-    if (!voices.length) {
+  <script>
+    const items = [
+      { emoji: "🐶", word: "Dog" },
+      { emoji: "🐱", word: "Cat" },
+      { emoji: "🐥", word: "Chick" },
+      { emoji: "🦋", word: "Butterfly" },
+      { emoji: "⭐", word: "Star" },
+      { emoji: "🌙", word: "Moon" },
+      { emoji: "☀️", word: "Sun" },
+      { emoji: "🍎", word: "Apple" },
+      { emoji: "🚗", word: "Car" },
+      { emoji: "⚽", word: "Ball" }
+    ];
+
+    const colors = ["#ff8fab", "#ffd166", "#90e0ef", "#caffbf", "#bdb2ff", "#ffc6a5"];
+    const playArea = document.getElementById("playArea");
+    const wordEl = document.getElementById("word");
+    const subEl = document.getElementById("sub");
+    const scoreEl = document.getElementById("score");
+    const soundBtn = document.getElementById("soundBtn");
+    const newBtn = document.getElementById("newBtn");
+    const tapOverlay = document.getElementById("tapOverlay");
+
+    let score = 0;
+    let soundOn = true;
+    let balloons = [];
+    let voices = [];
+    let speechUnlocked = false;
+    let started = false;
+
+    function loadVoices() {
+      if (!("speechSynthesis" in window)) return;
       voices = window.speechSynthesis.getVoices();
     }
 
-    const u = new SpeechSynthesisUtterance(text);
-
-    const preferredVoice =
-      voices.find(v => v.lang === "en-US") ||
-      voices.find(v => v.lang === "en-GB") ||
-      voices.find(v => v.lang && v.lang.toLowerCase().startsWith("en")) ||
-      null;
-
-    if (preferredVoice) {
-      u.voice = preferredVoice;
+    if ("speechSynthesis" in window) {
+      loadVoices();
+      window.speechSynthesis.onvoiceschanged = loadVoices;
     }
 
-    u.rate = 0.88;
-    u.pitch = 1.12;
-    u.volume = 0.95;
+    function rand(min, max) {
+      return Math.random() * (max - min) + min;
+    }
 
-    window.speechSynthesis.speak(u);
-  } catch (e) {}
-}
+    function speak(text) {
+      if (!soundOn || !("speechSynthesis" in window) || !speechUnlocked) return;
+      try {
+        window.speechSynthesis.cancel();
 
-document.addEventListener("pointerdown", function unlockSpeechOnce() {
-  speechUnlocked = true;
+        if (!voices.length) {
+          voices = window.speechSynthesis.getVoices();
+        }
 
-  if ("speechSynthesis" in window) {
-    try {
-      const silent = new SpeechSynthesisUtterance("");
-      silent.volume = 0;
-      window.speechSynthesis.speak(silent);
-      window.speechSynthesis.cancel();
-    } catch (e) {}
-  }
+        const u = new SpeechSynthesisUtterance(text);
 
-  document.removeEventListener("pointerdown", unlockSpeechOnce);
-}, { once: true });
+        const preferredVoice =
+          voices.find(v => v.lang === "en-US") ||
+          voices.find(v => v.lang === "en-GB") ||
+          voices.find(v => v.lang && v.lang.toLowerCase().startsWith("en")) ||
+          null;
 
-// Demo call
-setTimeout(()=>speak("Balloon"), 1000);
-</script>
+        if (preferredVoice) {
+          u.voice = preferredVoice;
+        }
 
-<h1 style="text-align:center;margin-top:40vh;">Tap to Enable Sound 🎈</h1>
+        u.rate = 0.88;
+        u.pitch = 1.12;
+        u.volume = 0.95;
+
+        window.speechSynthesis.speak(u);
+      } catch (e) {}
+    }
+
+    function tone(freq, duration) {
+      if (!soundOn) return;
+      if (freq === undefined) freq = 620;
+      if (duration === undefined) duration = 0.09;
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.value = 0.0001;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        const now = ctx.currentTime;
+        gain.gain.exponentialRampToValueAtTime(0.08, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+        osc.start(now);
+        osc.stop(now + duration + 0.03);
+      } catch (e) {}
+    }
+
+    function chooseItems() {
+      const copy = items.slice().sort(() => Math.random() - 0.5);
+      return copy.slice(0, 4);
+    }
+
+    function clearBalloons() {
+      balloons.forEach(function(b) { b.remove(); });
+      balloons = [];
+    }
+
+    function burst(x, y) {
+      const symbols = ["✨", "⭐", "🎉", "💫"];
+      for (let i = 0; i < 5; i++) {
+        const s = document.createElement("div");
+        s.className = "burst";
+        s.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+        s.style.left = (x + rand(-22, 22)) + "px";
+        s.style.top = (y + rand(-22, 22)) + "px";
+        playArea.appendChild(s);
+        setTimeout(function() { s.remove(); }, 700);
+      }
+    }
+
+    function makeBalloon(item, left, top, color) {
+      const b = document.createElement("button");
+      b.className = "balloon";
+      b.type = "button";
+      b.textContent = item.emoji;
+      b.style.left = left + "px";
+      b.style.top = top + "px";
+      b.style.background = color;
+      b.setAttribute("aria-label", item.word);
+
+      b.addEventListener("click", function() {
+        const rect = b.getBoundingClientRect();
+        b.classList.add("pop");
+        burst(rect.left + rect.width / 2, rect.top + rect.height / 2);
+        score += 1;
+        scoreEl.textContent = score;
+        wordEl.textContent = item.word;
+        subEl.textContent = "Yay!";
+        tone(650 + Math.random() * 200, 0.1);
+        setTimeout(function() { tone(840, 0.12); }, 80);
+        speak(item.word);
+
+        setTimeout(function() {
+          if (b.parentNode) b.remove();
+          balloons = balloons.filter(function(x) { return x !== b; });
+          if (balloons.length === 0) {
+            setTimeout(startRound, 250);
+          }
+        }, 220);
+      });
+
+      playArea.appendChild(b);
+      balloons.push(b);
+    }
+
+    function startRound() {
+      clearBalloons();
+      wordEl.textContent = "Pop!";
+      subEl.textContent = "Tap a balloon";
+
+      const chosen = chooseItems();
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const topMin = 140;
+      const topMax = Math.max(180, h - 220);
+
+      const positions = [
+        { x: w * 0.15, y: rand(topMin, topMax) },
+        { x: w * 0.38, y: rand(topMin, topMax) },
+        { x: w * 0.61, y: rand(topMin, topMax) },
+        { x: w * 0.82, y: rand(topMin, topMax) }
+      ];
+
+      positions.forEach(function(p, i) {
+        const bw = 110;
+        const bh = 135;
+        let x = Math.max(8, Math.min(w - bw - 8, p.x - bw / 2));
+        let y = Math.max(topMin, Math.min(h - bh - 70, p.y));
+        makeBalloon(chosen[i], x, y, colors[i % colors.length]);
+      });
+    }
+
+    function unlockAndStart() {
+      if (started) return;
+      started = true;
+      speechUnlocked = true;
+
+      if ("speechSynthesis" in window) {
+        try {
+          const silent = new SpeechSynthesisUtterance(" ");
+          silent.volume = 0;
+          window.speechSynthesis.speak(silent);
+          window.speechSynthesis.cancel();
+        } catch (e) {}
+      }
+
+      tapOverlay.classList.add("hidden");
+      startRound();
+      tone(700, 0.06);
+    }
+
+    tapOverlay.addEventListener("pointerdown", unlockAndStart);
+
+    soundBtn.addEventListener("click", function() {
+      soundOn = !soundOn;
+      soundBtn.textContent = soundOn ? "🔊 Sound" : "🔇 Sound";
+      if (soundOn && started) tone(700, 0.06);
+    });
+
+    newBtn.addEventListener("click", function() {
+      if (!started) {
+        unlockAndStart();
+      } else {
+        startRound();
+      }
+    });
+
+    window.addEventListener("resize", function() {
+      if (started) startRound();
+    });
+
+    document.addEventListener("visibilitychange", function() {
+      if (document.hidden && "speechSynthesis" in window) window.speechSynthesis.cancel();
+    });
+  </script>
 </body>
 </html>
