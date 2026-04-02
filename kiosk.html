@@ -43,7 +43,9 @@ body.glow-success::before{
   line-height:1.42;
   color:#7fdcff;
   text-align:center;
+  white-space:pre-wrap;
   word-break:break-word;
+  overflow-wrap:anywhere;
   opacity:1;
   transition:opacity .18s ease, color .18s ease, text-shadow .18s ease;
   will-change:opacity,color;
@@ -241,6 +243,42 @@ function currentLineEl(){
   return document.getElementById('lineText');
 }
 
+function fitLineToScreen(el){
+  if(!el) return;
+
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const availableWidth = Math.max(220, vw * 0.86);
+  const availableHeight = Math.max(120, vh * 0.72);
+
+  el.style.width = Math.min(1000, availableWidth) + 'px';
+
+  let low = 16;
+  let high = Math.min(64, Math.max(28, vw * 0.062));
+  let best = low;
+
+  function fits(size){
+    el.style.fontSize = size + 'px';
+    return el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= availableHeight;
+  }
+
+  if(fits(high)){
+    return;
+  }
+
+  while(low <= high){
+    const mid = Math.floor((low + high) / 2);
+    if(fits(mid)){
+      best = mid;
+      low = mid + 1;
+    }else{
+      high = mid - 1;
+    }
+  }
+
+  el.style.fontSize = best + 'px';
+}
+
 function normalizeTitle(title, fallbackIndex){
   const t = String(title || '').trim();
   return t || ('Set ' + (fallbackIndex + 1));
@@ -301,8 +339,9 @@ function applyCurrentLineVisualState(){
 
 function renderInitial(){
   const el = currentLineEl();
-  el.innerHTML = escapeHtml(sentences.length ? sentences[i] : 'No text');
+  el.textContent = sentences.length ? sentences[i] : 'No text';
   el.className = 'line show';
+  fitLineToScreen(el);
   applyCurrentLineVisualState();
   updateSpeed();
   updateCurrentTitleBadge();
@@ -392,8 +431,9 @@ function animateTo(index){
   const newEl = document.createElement('div');
   newEl.id = 'lineText';
   newEl.className = 'line fade-in';
-  newEl.innerHTML = escapeHtml(sentences[nextIndex]);
+  newEl.textContent = sentences[nextIndex];
   screen.appendChild(newEl);
+  fitLineToScreen(newEl);
 
   requestAnimationFrame(() => {
     oldEl.className = 'line fade-out';
@@ -977,7 +1017,14 @@ document.addEventListener('keydown', async e => {
   if(key === 'r') { e.preventDefault(); restart(); return; }
 });
 
-document.addEventListener('fullscreenchange', updateFullscreenButton);
+document.addEventListener('fullscreenchange', () => {
+  updateFullscreenButton();
+  fitLineToScreen(currentLineEl());
+});
+
+window.addEventListener('resize', () => {
+  fitLineToScreen(currentLineEl());
+});
 
 window.addEventListener('load', async () => {
   loadSetsFromStorage();
@@ -1081,6 +1128,78 @@ split = function(text){
   const tail = buf.trim();
   if(tail) sentences.push(tail);
 
+  return sentences.filter(Boolean);
+};
+
+// --- SMART SPLIT OVERRIDE V2 ---
+split = function(text){
+  if(!text) return [];
+
+  const normalized = String(text)
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  const sentences = [];
+  let buf = "";
+
+  function isBanglaChar(ch){
+    return /[\u0980-\u09FF]/.test(ch || "");
+  }
+
+  function isDigit(ch){
+    return /[0-9]/.test(ch || "");
+  }
+
+  function pushBuffer(){
+    const cleaned = buf
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n[ \t]+/g, "\n")
+      .trim();
+    if(cleaned) sentences.push(cleaned);
+    buf = "";
+  }
+
+  for(let idx = 0; idx < normalized.length; idx++){
+    const ch = normalized[idx];
+    const prev = normalized[idx - 1] || "";
+    const next = normalized[idx + 1] || "";
+
+    buf += ch;
+    let shouldBreak = false;
+
+    if(ch === "।" || ch === "!" || ch === "?"){
+      shouldBreak = true;
+    }
+    else if(ch === "."){
+      const prevIsBangla = isBanglaChar(prev);
+      const prevIsDigit = isDigit(prev);
+      const nextIsDigit = isDigit(next);
+
+      if(prevIsBangla){
+        shouldBreak = false;
+      }
+      else if(prevIsDigit && nextIsDigit){
+        shouldBreak = false;
+      }
+      else{
+        shouldBreak = true;
+      }
+    }
+    else if(ch === "\n" && next === "\n"){
+      shouldBreak = true;
+    }
+
+    if(shouldBreak){
+      pushBuffer();
+      while(normalized[idx + 1] === "\n"){
+        idx++;
+      }
+    }
+  }
+
+  pushBuffer();
   return sentences.filter(Boolean);
 };
 
