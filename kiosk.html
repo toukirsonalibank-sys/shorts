@@ -762,7 +762,19 @@ function speedDown(){ rate = Math.max(0.5, +(rate - 0.1).toFixed(1)); updateSpee
 function showControls(){ topBar.classList.remove('hidden'); bottomBar.classList.remove('hidden'); persistState(); }
 function hideControls(){ topBar.classList.add('hidden'); bottomBar.classList.add('hidden'); persistState(); }
 function settingsVisible(){ return !topBar.classList.contains('hidden'); }
-function toggleSettings(){ if (settingsVisible()) hideControls(); else showControls(); }
+async function toggleSettings(){
+  if (settingsVisible()){
+    hideControls();
+    return;
+  }
+
+  if(!document.fullscreenElement){
+    await enterFullscreen();
+    return;
+  }
+
+  showControls();
+}
 
 async function enterFullscreen(){
   try{
