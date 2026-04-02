@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Kiosk Reels Reader - Multi Set + Progress</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{
+  margin:0;padding:0;height:100%;width:100%;
+  background:#000;color:#fff;font-family:Arial,sans-serif;
+  overflow:hidden;overscroll-behavior:none;touch-action:none;
+}
+body.kiosk{cursor:none;}
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  box-shadow:inset 0 0 0 0 rgba(156,255,156,0);
+  transition:box-shadow .2s ease;
+  z-index:3;
+}
+body.glow-success::before{
+  box-shadow:inset 0 0 28px 8px rgba(156,255,156,.7);
+}
+#app{position:fixed;inset:0;background:#000;}
+
+.screen{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  padding:7vh 7vw;
+  overflow:hidden;
+}
+
+.line{
+  position:absolute;
+  top:50%;
+  left:50%;
+  width:min(1000px, 86vw);
+  transform:translate(-50%,-50%);
+  font-size:clamp(30px,6.2vw,64px);
+  line-height:1.42;
+  color:#7fdcff;
+  text-align:center;
+  word-break:break-word;
+  opacity:1;
+  transition:opacity .18s ease, color .18s ease, text-shadow .18s ease;
+  will-change:opacity,color;
+}
+.line.fade-out{opacity:0;}
+.line.fade-in{opacity:0;}
+.line.show{opacity:1;}
+.line.bm-next{color:#ffd966;}
+.line.success{
+  color:#9cff9c;
+  text-shadow:0 0 10px rgba(156,255,156,.45);
+}
+
+.overlay{
+  position:fixed;left:0;width:100%;
+  background:rgba(15,15,15,.96);
+  z-index:20;
+  transition:opacity .22s ease, transform .22s ease;
+}
+.top{top:0;padding:10px;border-bottom:1px solid rgba(255,255,255,.08);max-height:52vh;overflow:auto;}
+.bottom{bottom:0;padding:10px;border-top:1px solid rgba(255,255,255,.08);}
+.hidden.top{opacity:0;pointer-events:none;transform:translateY(-100%);}
+.hidden.bottom{opacity:0;pointer-events:none;transform:translateY(100%);}
+
+textarea,input,select{
+  border:none;outline:none;border-radius:12px;background:#111;color:#fff;
+}
+textarea{
+  width:100%;height:112px;resize:vertical;
+  padding:12px;font-size:15px;line-height:1.45;
+}
+input[type="text"]{
+  min-width:180px;padding:11px 12px;font-size:14px;
+}
+select{
+  min-width:180px;padding:11px 12px;font-size:14px;
+}
+input[type="file"]{
+  max-width:100%;
+}
+.row{
+  display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;
+}
+button,.badge{
+  border:none;border-radius:12px;padding:10px 14px;
+  background:#2f2f2f;color:#fff;font-size:14px;font-weight:700;
+}
+button{cursor:pointer;}
+button:active{transform:scale(.97);}
+.badge{display:inline-flex;align-items:center;background:#202020;}
+.muted{opacity:.75;font-size:13px}
+.titleBar{
+  position:fixed;top:56px;left:50%;transform:translateX(-50%);
+  z-index:8;pointer-events:auto;cursor:pointer;
+  background:rgba(0,0,0,.45);backdrop-filter:blur(4px);
+  padding:8px 14px;border-radius:999px;font-weight:700;max-width:84vw;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  color:#7fdcff;
+}
+.progressWrap{
+  position:fixed;left:50%;bottom:68px;transform:translateX(-50%);
+  z-index:8;pointer-events:auto;cursor:pointer;
+  width:min(560px, 76vw);
+}
+.progressBar{
+  width:100%;height:8px;border-radius:999px;
+  background:rgba(255,255,255,.12);overflow:hidden;
+}
+.progressFill{
+  height:100%;width:0%;
+  background:#7fdcff;
+  transition:width .18s ease;
+}
+.progressText{
+  margin-top:6px;text-align:center;font-size:13px;font-weight:700;opacity:.95;
+}
+.hiddenTitle{display:none;}
+@media (max-width:600px){
+  textarea{height:96px;font-size:14px;}
+  button,.badge,input[type="text"],select{padding:9px 12px;font-size:13px;}
+  .top{max-height:58vh;}
+  .titleBar{top:50px;font-size:13px;}
+  .progressWrap{bottom:60px;width:min(560px, 82vw);}
+}
+</style>
+</head>
+<body class="kiosk">
+<div id="app">
+  <div class="overlay top" id="topBar">
+    <div class="row">
+      <input type="file" id="fileInput" accept=".txt,text/plain">
+      <button id="importBtn">Import .txt</button>
+      <button id="exportBtn">Export All .txt</button>
+      <button id="kioskBtn">Fullscreen</button>
+    </div>
+
+    <div class="row">
+      <select id="setSelect"></select>
+      <input type="text" id="setTitleInput" placeholder="Set title">
+      <button id="newSetBtn">New Set</button>
+      <button id="saveSetBtn">Save/Update Set</button>
+      <button id="removeSetBtn">Remove Set</button>
+    </div>
+
+    <textarea id="textInput" placeholder="Paste text here for the selected set..."></textarea>
+
+    <div class="row">
+      <button id="loadBtn">Load Selected Set</button>
+      <button id="playBtn">Play</button>
+      <button id="pauseBtn">Pause</button>
+      <button id="stopBtn">Stop</button>
+      <button id="minusBtn">−</button>
+      <div class="badge" id="speedBadge">1.0x</div>
+      <button id="plusBtn">+</button>
+      <div class="badge" id="countBadge">0 sets</div>
+      <div class="badge" id="percentBadge">0%</div>
+    </div>
+
+    <div class="row muted">
+      Import rules: a .txt may contain many sets. Supported separators:
+      <span class="badge">=== Title ===</span>
+      <span class="badge"># Title</span>
+      <span class="badge">[Title]</span>
+      Otherwise, big blank-line blocks become separate sets.
+    </div>
+  </div>
+
+  <div class="titleBar hiddenTitle" id="currentSetTitle"></div>
+
+  <div class="progressWrap" id="progressWrap">
+    <div class="progressBar"><div class="progressFill" id="progressFill"></div></div>
+    <div class="progressText" id="progressText">0 / 0 · 0%</div>
+  </div>
+
+  <div class="screen" id="screen">
+    <div class="line show" id="lineText">Load text to start</div>
+  </div>
+
+  <div class="overlay bottom" id="bottomBar">
+    <div class="row" style="margin-top:0;justify-content:center;">
+      <button id="prevBtn">Prev</button>
+      <button id="nextBtn">Next</button>
+      <button id="restartBtn">Restart</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let sets = [];
+let currentSetIndex = -1;
+
+let sentences = [], i = 0, rate = 1, isPlaying = false, isPaused = false, bookmarkIndex = null, successSlideIndex = null;
+let startX = 0, startY = 0, startTime = 0;
+let lastAction = 0, lock = 420;
+let speakToken = 0;
+const SWIPE_MIN = 50;
+const MAX_SIDE = 110;
+const TAP_MAX_MOVE = 16;
+
+const topBar = document.getElementById('topBar');
+const bottomBar = document.getElementById('bottomBar');
+const screen = document.getElementById('screen');
+const speedBadge = document.getElementById('speedBadge');
+const countBadge = document.getElementById('countBadge');
+const percentBadge = document.getElementById('percentBadge');
+const kioskBtn = document.getElementById('kioskBtn');
+const setSelect = document.getElementById('setSelect');
+const textInput = document.getElementById('textInput');
+const setTitleInput = document.getElementById('setTitleInput');
+const currentSetTitle = document.getElementById('currentSetTitle');
+const progressFill = document.getElementById('progressFill');
+const progressText = document.getElementById('progressText');
+const progressWrap = document.getElementById('progressWrap');
+
+const STORAGE_SETS_KEY = 'multiReelsReaderSets_v2';
+const STORAGE_STATE_KEY = 'multiReelsReaderState_v2';
+
+function split(text){
+  if(!text) return [];
+  const normalized = text
+    .replace(/\r\n/g,"\n")
+    .replace(/\n{2,}/g,". ")
+    .replace(/\n/g," ")
+    .replace(/\s+/g," ")
+    .trim();
+  return normalized.match(/[^.!?।]+[.!?।]?/g)?.map(s=>s.trim()).filter(Boolean) || [];
+}
+
+function escapeHtml(s){
+  return String(s || '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+          .replaceAll('"','&quot;').replaceAll("'","&#039;");
+}
+
+function currentLineEl(){
+  return document.getElementById('lineText');
+}
+
+function normalizeTitle(title, fallbackIndex){
+  const t = String(title || '').trim();
+  return t || ('Set ' + (fallbackIndex + 1));
+}
+
+function updateSpeed(){
+  speedBadge.textContent = rate.toFixed(1) + 'x';
+  persistState();
+}
+
+function updateCount(){
+  countBadge.textContent = sets.length + (sets.length === 1 ? ' set' : ' sets');
+}
+
+function updateFullscreenButton(){
+  kioskBtn.textContent = document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen';
+}
+
+function updateCurrentTitleBadge(){
+  if(currentSetIndex >= 0 && sets[currentSetIndex]){
+    currentSetTitle.textContent = sets[currentSetIndex].title || ('Set ' + (currentSetIndex + 1));
+    currentSetTitle.classList.remove('hiddenTitle');
+  }else{
+    currentSetTitle.textContent = '';
+    currentSetTitle.classList.add('hiddenTitle');
+  }
+}
+
+function updateProgress(){
+  const total = sentences.length;
+  const current = total ? (i + 1) : 0;
+  const pct = total ? Math.round((current / total) * 100) : 0;
+  const hasBookmark = Number.isInteger(bookmarkIndex) && bookmarkIndex >= 0 && bookmarkIndex < total;
+  const bookmarkText = hasBookmark ? ' · BM ' + (bookmarkIndex + 1) : '';
+  progressFill.style.width = pct + '%';
+  progressText.textContent = current + ' / ' + total + ' · ' + pct + '%' + bookmarkText;
+  percentBadge.textContent = pct + '%';
+  persistState();
+}
+
+function applyCurrentLineVisualState(){
+  const el = currentLineEl();
+  if(!el) return;
+
+  el.classList.remove('bm-next', 'success');
+  document.body.classList.remove('glow-success');
+
+  if(Number.isInteger(successSlideIndex) && successSlideIndex === i){
+    el.classList.add('success');
+    document.body.classList.add('glow-success');
+    return;
+  }
+
+  if(Number.isInteger(bookmarkIndex) && i === bookmarkIndex + 1){
+    el.classList.add('bm-next');
+  }
+}
+
+function renderInitial(){
+  const el = currentLineEl();
+  el.innerHTML = escapeHtml(sentences.length ? sentences[i] : 'No text');
+  el.className = 'line show';
+  applyCurrentLineVisualState();
+  updateSpeed();
+  updateCurrentTitleBadge();
+  updateProgress();
+}
+
+function canAct(){
+  const now = Date.now();
+  if(now - lastAction < lock) return false;
+  lastAction = now;
+  return true;
+}
+
+function cancelSpeech(){
+  speakToken++;
+  speechSynthesis.cancel();
+}
+
+function queueSpeakForCurrentLine(){
+  if(!isPlaying || isPaused || !sentences.length) return;
+  const myToken = ++speakToken;
+  speechSynthesis.cancel();
+
+  const utter = new SpeechSynthesisUtterance(sentences[i]);
+  utter.rate = rate;
+
+  utter.onend = () => {
+    if(myToken !== speakToken) return;
+    if(!isPlaying || isPaused) return;
+    setTimeout(() => {
+      if(myToken !== speakToken) return;
+      if(!isPlaying || isPaused) return;
+      queueSpeakForCurrentLine();
+    }, 40);
+  };
+
+  utter.onerror = () => {
+    if(myToken !== speakToken) return;
+    if(!isPlaying || isPaused) return;
+    setTimeout(() => {
+      if(myToken !== speakToken) return;
+      if(!isPlaying || isPaused) return;
+      queueSpeakForCurrentLine();
+    }, 120);
+  };
+
+  try {
+    speechSynthesis.speak(utter);
+  } catch(e) {}
+}
+
+function animateTo(index){
+  if(!sentences.length) return;
+
+  const total = sentences.length;
+  const nextIndex = ((index % total) + total) % total;
+
+  if(nextIndex === i && currentLineEl().textContent === sentences[i]) {
+    if(isPlaying) queueSpeakForCurrentLine();
+    return;
+  }
+
+  const oldEl = currentLineEl();
+  const newEl = document.createElement('div');
+  newEl.id = 'lineText';
+  newEl.className = 'line fade-in';
+  newEl.innerHTML = escapeHtml(sentences[nextIndex]);
+  screen.appendChild(newEl);
+
+  requestAnimationFrame(() => {
+    oldEl.className = 'line fade-out';
+    newEl.className = 'line show';
+  });
+
+  setTimeout(() => {
+    if(oldEl.parentNode) oldEl.remove();
+    applyCurrentLineVisualState();
+  }, 200);
+
+  i = nextIndex;
+  updateProgress();
+  applyCurrentLineVisualState();
+  if(isPlaying) queueSpeakForCurrentLine();
+}
+
+function next(){ if(sentences.length) animateTo(i + 1); }
+function prev(){ if(sentences.length) animateTo(i - 1); }
+function restart(){ if(sentences.length) animateTo(0); }
+
+function saveSetsToStorage(){
+  try{
+    localStorage.setItem(STORAGE_SETS_KEY, JSON.stringify(sets));
+  }catch(e){}
+}
+
+function loadSetsFromStorage(){
+  try{
+    const raw = localStorage.getItem(STORAGE_SETS_KEY);
+    if(!raw) return;
+    const parsed = JSON.parse(raw);
+    if(Array.isArray(parsed)){
+      sets = parsed
+        .map((x, idx) => ({
+          title: normalizeTitle(x && x.title, idx),
+          text: String((x && x.text) || '').trim()
+        }))
+        .filter(x => x.text);
+    }
+  }catch(e){}
+}
+
+function persistState(){
+  try{
+    localStorage.setItem(STORAGE_STATE_KEY, JSON.stringify({
+      currentSetIndex,
+      currentLineIndex: i,
+      bookmarkIndex,
+      successSlideIndex,
+      rate,
+      controlsHidden: settingsVisible(),
+      actuallyHidden: !settingsVisible(),
+      draftTitle: setTitleInput.value,
+      draftText: textInput.value
+    }));
+  }catch(e){}
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_STATE_KEY);
+    if(!raw) return null;
+    const state = JSON.parse(raw);
+    return state && typeof state === 'object' ? state : null;
+  }catch(e){
+    return null;
+  }
+}
+
+function refreshSetSelect(){
+  setSelect.innerHTML = '';
+  if(!sets.length){
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'No sets';
+    setSelect.appendChild(opt);
+    currentSetIndex = -1;
+    updateCount();
+    updateCurrentTitleBadge();
+    updateProgress();
+    return;
+  }
+
+  sets.forEach((set, idx) => {
+    const opt = document.createElement('option');
+    opt.value = String(idx);
+    opt.textContent = (idx + 1) + '. ' + normalizeTitle(set.title, idx);
+    setSelect.appendChild(opt);
+  });
+
+  if(currentSetIndex < 0 || currentSetIndex >= sets.length) currentSetIndex = 0;
+  setSelect.value = String(currentSetIndex);
+  textInput.value = sets[currentSetIndex].text;
+  setTitleInput.value = sets[currentSetIndex].title;
+  updateCount();
+  updateCurrentTitleBadge();
+}
+
+function selectSet(index, autoLoad=false){
+  if(index < 0 || index >= sets.length) return;
+  currentSetIndex = index;
+  setSelect.value = String(index);
+  setTitleInput.value = sets[index].title;
+  textInput.value = sets[index].text;
+  updateCurrentTitleBadge();
+  persistState();
+  if(autoLoad) loadSelectedSet();
+}
+
+function loadSelectedSet(restoreLineIndex=null, restoreBookmarkIndex=null, restoreSuccessSlideIndex=null){
+  if(currentSetIndex < 0 || !sets[currentSetIndex]){
+    sentences = [];
+    i = 0;
+    bookmarkIndex = null;
+    successSlideIndex = null;
+    document.body.classList.remove('glow-success');
+    cancelSpeech();
+    renderInitial();
+    return;
+  }
+  sentences = split(sets[currentSetIndex].text);
+  i = 0;
+  bookmarkIndex = null;
+  successSlideIndex = null;
+  if(Number.isInteger(restoreLineIndex) && restoreLineIndex >= 0 && restoreLineIndex < sentences.length){
+    i = restoreLineIndex;
+  }
+  if(Number.isInteger(restoreBookmarkIndex) && restoreBookmarkIndex >= 0 && restoreBookmarkIndex < sentences.length){
+    bookmarkIndex = restoreBookmarkIndex;
+  }
+  if(Number.isInteger(restoreSuccessSlideIndex) && restoreSuccessSlideIndex >= 0 && restoreSuccessSlideIndex < sentences.length){
+    successSlideIndex = restoreSuccessSlideIndex;
+  }
+  isPlaying = false;
+  isPaused = false;
+  cancelSpeech();
+  renderInitial();
+}
+
+function saveOrUpdateCurrentSet(){
+  const title = setTitleInput.value.trim();
+  const text = textInput.value.trim();
+  if(!text){
+    alert('Text is empty.');
+    return;
+  }
+
+  if(currentSetIndex >= 0 && sets[currentSetIndex]){
+    sets[currentSetIndex] = {
+      title: normalizeTitle(title, currentSetIndex),
+      text
+    };
+  }else{
+    sets.push({
+      title: normalizeTitle(title, sets.length),
+      text
+    });
+    currentSetIndex = sets.length - 1;
+  }
+
+  saveSetsToStorage();
+  refreshSetSelect();
+  selectSet(currentSetIndex, false);
+  persistState();
+}
+
+function createNewSet(){
+  currentSetIndex = -1;
+  setSelect.value = '';
+  setTitleInput.value = '';
+  textInput.value = '';
+  currentSetTitle.classList.add('hiddenTitle');
+  cancelSpeech();
+  isPlaying = false;
+  isPaused = false;
+  sentences = [];
+  i = 0;
+  bookmarkIndex = null;
+  successSlideIndex = null;
+  document.body.classList.remove('glow-success');
+  renderInitial();
+  persistState();
+}
+
+function removeCurrentSet(){
+  if(currentSetIndex < 0 || !sets[currentSetIndex]) return;
+  const name = sets[currentSetIndex].title || ('Set ' + (currentSetIndex + 1));
+  if(!confirm('Remove "' + name + '" ?')) return;
+
+  sets.splice(currentSetIndex, 1);
+  if(currentSetIndex >= sets.length) currentSetIndex = sets.length - 1;
+  saveSetsToStorage();
+  refreshSetSelect();
+
+  if(currentSetIndex >= 0) {
+    selectSet(currentSetIndex, true);
+  } else {
+    createNewSet();
+  }
+  persistState();
+}
+
+function parseMultiSetText(raw){
+  const text = String(raw || '').replace(/\r\n/g, '\n').trim();
+  if(!text) return [];
+
+  const lines = text.split('\n');
+  const result = [];
+  let currentTitle = '';
+  let currentBody = [];
+
+  function pushCurrent(){
+    const body = currentBody.join('\n').trim();
+    if(body){
+      result.push({
+        title: normalizeTitle(currentTitle, result.length),
+        text: body
+      });
+    }
+    currentTitle = '';
+    currentBody = [];
+  }
+
+  function isTitleLine(line){
+    const t = line.trim();
+    if(!t) return false;
+    if(/^===\s*.+?\s*===$/.test(t)) return true;
+    if(/^#\s+.+$/.test(t)) return true;
+    if(/^\[(.+)\]$/.test(t)) return true;
+    return false;
+  }
+
+  function titleFromLine(line){
+    const t = line.trim();
+    if(/^===\s*.+?\s*===$/.test(t)) return t.replace(/^===\s*/, '').replace(/\s*===$/, '').trim();
+    if(/^#\s+.+$/.test(t)) return t.replace(/^#\s+/, '').trim();
+    const m = t.match(/^\[(.+)\]$/);
+    if(m) return m[1].trim();
+    return t;
+  }
+
+  const anyExplicitTitles = lines.some(isTitleLine);
+
+  if(anyExplicitTitles){
+    for(const line of lines){
+      if(isTitleLine(line)){
+        pushCurrent();
+        currentTitle = titleFromLine(line);
+      }else{
+        currentBody.push(line);
+      }
+    }
+    pushCurrent();
+    return result.filter(x => x.text);
+  }
+
+  const blocks = text.split(/\n\s*\n\s*\n+/).map(x => x.trim()).filter(Boolean);
+  if(blocks.length > 1){
+    return blocks.map((block, idx) => {
+      const arr = block.split('\n');
+      let title = '';
+      let body = block;
+      if(arr.length > 1 && arr[0].trim().length <= 80){
+        title = arr[0].trim();
+        body = arr.slice(1).join('\n').trim();
+      }
+      return {
+        title: normalizeTitle(title, idx),
+        text: body
+      };
+    }).filter(x => x.text);
+  }
+
+  return [{ title: 'Set 1', text }];
+}
+
+function mergeImportedSets(imported){
+  if(!imported.length){
+    alert('No valid sets found in the file.');
+    return;
+  }
+  sets = sets.concat(imported.map((x, idx) => ({
+    title: normalizeTitle(x.title, sets.length + idx),
+    text: String(x.text || '').trim()
+  })).filter(x => x.text));
+  currentSetIndex = sets.length - imported.length;
+  saveSetsToStorage();
+  refreshSetSelect();
+  selectSet(currentSetIndex, true);
+  persistState();
+}
+
+function exportAllSets(){
+  if(!sets.length){
+    alert('No sets to export.');
+    return;
+  }
+  const chunks = sets.map((set, idx) => {
+    const title = normalizeTitle(set.title, idx);
+    return '=== ' + title + ' ===\n' + String(set.text || '').trim();
+  });
+  const content = chunks.join('\n\n');
+  downloadTextFile(content, 'all_sets_export.txt');
+}
+
+function downloadTextFile(content, filename){
+  const blob = new Blob([content], {type:'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function setBookmarkAtCurrent(){
+  if(!sentences.length) return;
+  bookmarkIndex = i;
+  successSlideIndex = null;
+  document.body.classList.remove('glow-success');
+  applyCurrentLineVisualState();
+  persistState();
+  updateProgress();
+}
+
+function restartFromBookmark(){
+  if(!sentences.length) return;
+  const target = Number.isInteger(bookmarkIndex) && bookmarkIndex >= 0 && bookmarkIndex < sentences.length ? bookmarkIndex : 0;
+  animateTo(target);
+}
+
+function advanceBookmarkFromBmNext(){
+  if(!sentences.length) return;
+  if(!(Number.isInteger(bookmarkIndex) && i === bookmarkIndex + 1)) return;
+
+  successSlideIndex = i;
+  bookmarkIndex = Math.min(i + 1, sentences.length - 1);
+
+  const el = currentLineEl();
+  if(el){
+    el.classList.remove('bm-next');
+    el.classList.add('success');
+  }
+  document.body.classList.add('glow-success');
+
+  persistState();
+  updateProgress();
+}
+
+function play(){
+  if(!sentences.length) loadSelectedSet();
+  if(!sentences.length) return;
+  isPlaying = true;
+  isPaused = false;
+  queueSpeakForCurrentLine();
+}
+function pause(){ isPlaying = false; isPaused = true; cancelSpeech(); }
+function stop(){ isPlaying = false; isPaused = false; cancelSpeech(); }
+function togglePlayPause(){ if (isPlaying && !isPaused) pause(); else play(); }
+function speedUp(){ rate = Math.min(3, +(rate + 0.1).toFixed(1)); updateSpeed(); if(isPlaying) queueSpeakForCurrentLine(); }
+function speedDown(){ rate = Math.max(0.5, +(rate - 0.1).toFixed(1)); updateSpeed(); if(isPlaying) queueSpeakForCurrentLine(); }
+
+function showControls(){ topBar.classList.remove('hidden'); bottomBar.classList.remove('hidden'); persistState(); }
+function hideControls(){ topBar.classList.add('hidden'); bottomBar.classList.add('hidden'); persistState(); }
+function settingsVisible(){ return !topBar.classList.contains('hidden'); }
+function toggleSettings(){ if (settingsVisible()) hideControls(); else showControls(); }
+
+async function enterFullscreen(){
+  try{
+    if(!document.fullscreenElement && document.documentElement.requestFullscreen){
+      await document.documentElement.requestFullscreen();
+    }
+  }catch(e){}
+}
+async function exitFullscreen(){
+  try{
+    if(document.fullscreenElement && document.exitFullscreen){
+      await document.exitFullscreen();
+    }
+  }catch(e){}
+}
+async function toggleFullscreen(){
+  if(document.fullscreenElement) await exitFullscreen();
+  else await enterFullscreen();
+}
+
+document.getElementById('kioskBtn').onclick = toggleFullscreen;
+document.getElementById('loadBtn').onclick = () => { loadSelectedSet(); persistState(); };
+document.getElementById('playBtn').onclick = play;
+document.getElementById('pauseBtn').onclick = pause;
+document.getElementById('stopBtn').onclick = stop;
+document.getElementById('minusBtn').onclick = speedDown;
+document.getElementById('plusBtn').onclick = speedUp;
+document.getElementById('prevBtn').onclick = prev;
+document.getElementById('nextBtn').onclick = next;
+document.getElementById('restartBtn').onclick = restart;
+document.getElementById('newSetBtn').onclick = createNewSet;
+document.getElementById('saveSetBtn').onclick = saveOrUpdateCurrentSet;
+document.getElementById('removeSetBtn').onclick = removeCurrentSet;
+document.getElementById('exportBtn').onclick = exportAllSets;
+
+currentSetTitle.addEventListener('click', e => {
+  e.preventDefault();
+  e.stopPropagation();
+  setBookmarkAtCurrent();
+});
+
+progressWrap.addEventListener('click', e => {
+  e.preventDefault();
+  e.stopPropagation();
+  restartFromBookmark();
+});
+
+screen.addEventListener('click', e => {
+  const lineEl = e.target.closest('#lineText');
+  if(!lineEl) return;
+  if(!(Number.isInteger(bookmarkIndex) && i === bookmarkIndex + 1)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  advanceBookmarkFromBmNext();
+}, true);
+
+document.getElementById('importBtn').addEventListener('click', () => {
+  const file = document.getElementById('fileInput').files[0];
+  if(!file){
+    alert('Choose a .txt file first.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const imported = parseMultiSetText(e.target.result || '');
+    mergeImportedSets(imported);
+  };
+  reader.readAsText(file, 'utf-8');
+});
+
+document.getElementById('fileInput').addEventListener('change', function(){
+  const file = this.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const raw = e.target.result || '';
+    const imported = parseMultiSetText(raw);
+    if(imported.length === 1){
+      setTitleInput.value = imported[0].title || '';
+      textInput.value = imported[0].text || '';
+      currentSetIndex = -1;
+    }else{
+      setTitleInput.value = '';
+      textInput.value = raw;
+    }
+    persistState();
+  };
+  reader.readAsText(file, 'utf-8');
+});
+
+setSelect.addEventListener('change', e => {
+  const idx = Number(e.target.value);
+  if(Number.isFinite(idx)) selectSet(idx, true);
+});
+
+setTitleInput.addEventListener('input', persistState);
+textInput.addEventListener('input', persistState);
+
+let touchTapCount = 0;
+let touchTapTimer = null;
+let movedTooMuch = false;
+
+screen.addEventListener('touchstart', e => {
+  const target = e.target;
+  if(target.closest('.overlay, button, textarea, input, select')) return;
+  if(target.closest('#lineText') && Number.isInteger(bookmarkIndex) && i === bookmarkIndex + 1) return;
+  const t = e.changedTouches[0];
+  startX = t.clientX;
+  startY = t.clientY;
+  startTime = Date.now();
+  movedTooMuch = false;
+}, {passive:true});
+
+screen.addEventListener('touchmove', e => {
+  const target = e.target;
+  if(target.closest('.overlay, button, textarea, input, select')) return;
+  if(target.closest('#lineText') && Number.isInteger(bookmarkIndex) && i === bookmarkIndex + 1) return;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - startX;
+  const dy = t.clientY - startY;
+  if (Math.abs(dx) > TAP_MAX_MOVE || Math.abs(dy) > TAP_MAX_MOVE) movedTooMuch = true;
+}, {passive:true});
+
+screen.addEventListener('touchend', e => {
+  const target = e.target;
+  if(target.closest('.overlay, button, textarea, input, select')) return;
+
+  if(target.closest('#lineText')){
+    if(Number.isInteger(bookmarkIndex) && i === bookmarkIndex + 1){
+      e.preventDefault();
+      e.stopPropagation();
+      advanceBookmarkFromBmNext();
+      return;
+    }
+  }
+
+  const now = Date.now();
+  const t = e.changedTouches[0];
+  const dx = t.clientX - startX;
+  const dy = t.clientY - startY;
+  const absDx = Math.abs(dx), absDy = Math.abs(dy);
+  const dt = now - startTime;
+
+  if(dy < -SWIPE_MIN && absDy > absDx && absDx < MAX_SIDE){
+    clearTimeout(touchTapTimer); touchTapTimer = null; touchTapCount = 0;
+    if(canAct()) next();
+    return;
+  }
+  if(dy > SWIPE_MIN && absDy > absDx && absDx < MAX_SIDE){
+    clearTimeout(touchTapTimer); touchTapTimer = null; touchTapCount = 0;
+    if(canAct()) prev();
+    return;
+  }
+
+  if(!movedTooMuch && absDx < TAP_MAX_MOVE && absDy < TAP_MAX_MOVE && dt < 320){
+    touchTapCount += 1;
+    if(touchTapCount === 1){
+      clearTimeout(touchTapTimer);
+      touchTapTimer = setTimeout(() => {
+        touchTapCount = 0;
+        togglePlayPause();
+      }, 280);
+      return;
+    }
+    if(touchTapCount === 2){
+      clearTimeout(touchTapTimer);
+      touchTapTimer = null;
+      touchTapCount = 0;
+      toggleSettings();
+      return;
+    }
+  }
+}, {passive:true});
+
+screen.addEventListener('wheel', e => {
+  if(!canAct()) return;
+  if(e.deltaY > 18) next();
+  else if(e.deltaY < -18) prev();
+}, {passive:true});
+
+document.addEventListener('keydown', async e => {
+  const tag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+  if(tag === 'textarea' || tag === 'input' || tag === 'select') return;
+
+  const key = e.key;
+  const lowerKey = key.toLowerCase();
+
+  if(key === 'ArrowUp') { e.preventDefault(); prev(); return; }
+  if(key === 'ArrowDown') { e.preventDefault(); next(); return; }
+  if(key === ' ' || key === 'Spacebar') { e.preventDefault(); togglePlayPause(); return; }
+  if(lowerKey === 'h') { e.preventDefault(); toggleSettings(); return; }
+  if(lowerKey === 'f') { e.preventDefault(); await toggleFullscreen(); return; }
+  if(key === '+' || key === '=' || key === 'Add' || e.code === 'NumpadAdd') { e.preventDefault(); speedUp(); return; }
+  if(key === '-' || key === '_' || key === 'Subtract' || e.code === 'NumpadSubtract') { e.preventDefault(); speedDown(); return; }
+  if(key === 'r') { e.preventDefault(); restart(); return; }
+});
+
+document.addEventListener('fullscreenchange', updateFullscreenButton);
+
+window.addEventListener('load', async () => {
+  loadSetsFromStorage();
+  const state = loadState();
+
+  if(state && typeof state.rate === 'number'){
+    rate = Math.max(0.5, Math.min(3, +state.rate.toFixed(1)));
+  }
+
+  if(state && Array.isArray(sets) && sets.length && Number.isInteger(state.currentSetIndex)){
+    currentSetIndex = Math.max(0, Math.min(state.currentSetIndex, sets.length - 1));
+  }
+
+  refreshSetSelect();
+
+  if(sets.length){
+    const restoreLine = state && Number.isInteger(state.currentLineIndex) ? state.currentLineIndex : 0;
+    const restoreBookmark = state && Number.isInteger(state.bookmarkIndex) ? state.bookmarkIndex : null;
+    const restoreSuccess = state && Number.isInteger(state.successSlideIndex) ? state.successSlideIndex : null;
+    selectSet(currentSetIndex >= 0 ? currentSetIndex : 0, false);
+    loadSelectedSet(restoreLine, restoreBookmark, restoreSuccess);
+  }else{
+    createNewSet();
+    if(state){
+      if(typeof state.draftTitle === 'string') setTitleInput.value = state.draftTitle;
+      if(typeof state.draftText === 'string') textInput.value = state.draftText;
+    }
+  }
+
+  if(state && state.actuallyHidden === true){
+    hideControls();
+  }else{
+    showControls();
+  }
+
+  updateFullscreenButton();
+
+  // auto click fullscreen button from the beginning
+  setTimeout(() => {
+    try { kioskBtn.click(); } catch(e) {}
+  }, 200);
+});
+
+// --- SMART SPLIT OVERRIDE ---
+split = function(text){
+  if(!text) return [];
+
+  const normalized = text
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{2,}/g, " ")
+    .replace(/\n/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const sentences = [];
+  let buf = "";
+
+  function isBanglaChar(ch){
+    return /[\u0980-\u09FF]/.test(ch || "");
+  }
+
+  function isDigit(ch){
+    return /[0-9]/.test(ch || "");
+  }
+
+  for(let idx = 0; idx < normalized.length; idx++){
+    const ch = normalized[idx];
+    const prev = normalized[idx - 1] || "";
+    const next = normalized[idx + 1] || "";
+
+    buf += ch;
+
+    let shouldBreak = false;
+
+    if(ch === "।" || ch === "!" || ch === "?"){
+      shouldBreak = true;
+    }
+    else if(ch === "."){
+      const prevIsBangla = isBanglaChar(prev);
+      const prevIsDigit = isDigit(prev);
+      const nextIsDigit = isDigit(next);
+
+      if(prevIsBangla){
+        shouldBreak = false;
+      }
+      else if(prevIsDigit && nextIsDigit){
+        shouldBreak = false;
+      }
+      else{
+        shouldBreak = true;
+      }
+    }
+
+    if(shouldBreak){
+      const cleaned = buf.trim();
+      if(cleaned) sentences.push(cleaned);
+      buf = "";
+    }
+  }
+
+  const tail = buf.trim();
+  if(tail) sentences.push(tail);
+
+  return sentences.filter(Boolean);
+};
+
+</script>
+</body>
+</html>
