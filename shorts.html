@@ -105,7 +105,6 @@
     #touchSurface {
       position: absolute; inset: 0; z-index: 10; background: transparent;
     }
-    #touchSurface.passThrough { pointer-events: none; }
 
     .overlay {
       position: absolute; inset: 0; z-index: 50; background: rgba(0,0,0,.45);
@@ -455,57 +454,38 @@
           <div class="fallbackCard">
             <div class="fallbackBadge">Facebook link</div>
             <h1 class="fallbackTitle">Open on Facebook</h1>
-            <p class="fallbackText">This item cannot be played directly inside the app. Tap the button below to open the Facebook page and play it there.</p>
+            <p class="fallbackText">This item cannot be played directly inside the app. Tap the blue button area to open the Facebook app. Swipe anywhere else to move between videos, and single-tap anywhere else to show or hide settings.</p>
             <div class="fbLinkBox">${escapeHtml(video.url)}</div>
-            <a class="fbAction" href="${escapeHtml(video.url)}" target="_blank" rel="noopener noreferrer">Play on Facebook</a>
+            <div class="fbAction" data-fb-action="1">Play on Facebook</div>
           </div>
         </div>`;
     }
 
-    function bindFacebookFallbackGestures(rootEl) {
-      if (!rootEl) return;
+    function getFacebookActionRect() {
+      const btn = activeLayerEl.querySelector('[data-fb-action="1"]');
+      return btn ? btn.getBoundingClientRect() : null;
+    }
 
-      rootEl.addEventListener('touchstart', (e) => {
-        if (settingsOverlay.classList.contains('show')) return;
-        if (e.target.closest('.fbAction')) return;
-        const t = e.changedTouches[0];
-        touchStartX = t.clientX;
-        touchStartY = t.clientY;
-        lastTouchMoved = false;
-      }, { passive: true });
+    function pointInsideRect(x, y, rect) {
+      return !!rect && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+    }
 
-      rootEl.addEventListener('touchmove', (e) => {
-        if (settingsOverlay.classList.contains('show')) return;
-        if (e.target.closest('.fbAction')) return;
-        const t = e.changedTouches[0];
-        if (Math.abs(t.clientY - touchStartY) > TOUCH_TAP_MAX_MOVE || Math.abs(t.clientX - touchStartX) > TOUCH_TAP_MAX_MOVE) {
-          lastTouchMoved = true;
-        }
-      }, { passive: true });
+    function buildFacebookIntentUrl(url) {
+      try {
+        const u = new URL(url);
+        return `intent://${u.host}${u.pathname}${u.search}${u.hash}#Intent;scheme=${u.protocol.replace(':','')};package=com.facebook.katana;S.browser_fallback_url=${encodeURIComponent(url)};end`;
+      } catch {
+        return url;
+      }
+    }
 
-      rootEl.addEventListener('touchend', (e) => {
-        if (settingsOverlay.classList.contains('show')) return;
-        if (e.target.closest('.fbAction')) return;
-        const t = e.changedTouches[0];
-        const dx = t.clientX - touchStartX;
-        const dy = t.clientY - touchStartY;
-        unlockAudioIfNeeded();
-
-        if (Math.abs(dy) >= TOUCH_SWIPE_THRESHOLD && Math.abs(dy) > Math.abs(dx)) {
-          if (dy < 0) nextVideo(); else prevVideo();
-          return;
-        }
-
-        if (!lastTouchMoved && Math.abs(dx) <= TOUCH_TAP_MAX_MOVE && Math.abs(dy) <= TOUCH_TAP_MAX_MOVE) {
-          toggleUI();
-        }
-      }, { passive: true });
-
-      rootEl.addEventListener('click', (e) => {
-        if (settingsOverlay.classList.contains('show')) return;
-        if (e.target.closest('.fbAction')) return;
-        toggleUI();
-      });
+    function openFacebookApp(url) {
+      const intentUrl = buildFacebookIntentUrl(url);
+      try {
+        window.location.href = intentUrl;
+      } catch {
+        try { window.location.href = url; } catch {}
+      }
     }
 
     function attachActiveStateHandler(playerRef) {
@@ -558,23 +538,12 @@
       activeLayerEl.innerHTML = '';
 
       if (video.type === 'facebook') {
-        touchSurfaceEl.classList.add('passThrough');
         renderFacebookFallback(activeLayerEl, video);
-        bindFacebookFallbackGestures(activeLayerEl.querySelector('.fallbackScreen'));
-        const fbAction = activeLayerEl.querySelector('.fbAction');
-        if (fbAction) {
-          fbAction.addEventListener('click', (e) => {
-            e.stopPropagation();
-            try { window.location.href = video.url; } catch {}
-          });
-        }
         transitionLock = false;
         preloadNext();
         showUI(true);
         return;
       }
-
-      touchSurfaceEl.classList.remove('passThrough');
 
       activeLayerEl.innerHTML = '<div id="playerActive"></div>';
       activePlayer = createPlayer(
@@ -720,9 +689,24 @@
       }
 
       if (!lastTouchMoved && Math.abs(dx) <= TOUCH_TAP_MAX_MOVE && Math.abs(dy) <= TOUCH_TAP_MAX_MOVE) {
+        const video = currentVideo();
+        if (video && video.type === 'facebook' && pointInsideRect(t.clientX, t.clientY, getFacebookActionRect())) {
+          openFacebookApp(video.url);
+          return;
+        }
         toggleUI();
       }
     }, { passive: true });
+
+    touchSurfaceEl.addEventListener('click', (e) => {
+      if (settingsOverlay.classList.contains('show')) return;
+      const video = currentVideo();
+      if (video && video.type === 'facebook' && pointInsideRect(e.clientX, e.clientY, getFacebookActionRect())) {
+        openFacebookApp(video.url);
+        return;
+      }
+      toggleUI();
+    });
 
     window.addEventListener('wheel', (e) => {
       if (settingsOverlay.classList.contains('show')) return;
