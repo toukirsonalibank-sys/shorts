@@ -462,6 +462,52 @@
         </div>`;
     }
 
+    function bindFacebookFallbackGestures(rootEl) {
+      if (!rootEl) return;
+
+      rootEl.addEventListener('touchstart', (e) => {
+        if (settingsOverlay.classList.contains('show')) return;
+        if (e.target.closest('.fbAction')) return;
+        const t = e.changedTouches[0];
+        touchStartX = t.clientX;
+        touchStartY = t.clientY;
+        lastTouchMoved = false;
+      }, { passive: true });
+
+      rootEl.addEventListener('touchmove', (e) => {
+        if (settingsOverlay.classList.contains('show')) return;
+        if (e.target.closest('.fbAction')) return;
+        const t = e.changedTouches[0];
+        if (Math.abs(t.clientY - touchStartY) > TOUCH_TAP_MAX_MOVE || Math.abs(t.clientX - touchStartX) > TOUCH_TAP_MAX_MOVE) {
+          lastTouchMoved = true;
+        }
+      }, { passive: true });
+
+      rootEl.addEventListener('touchend', (e) => {
+        if (settingsOverlay.classList.contains('show')) return;
+        if (e.target.closest('.fbAction')) return;
+        const t = e.changedTouches[0];
+        const dx = t.clientX - touchStartX;
+        const dy = t.clientY - touchStartY;
+        unlockAudioIfNeeded();
+
+        if (Math.abs(dy) >= TOUCH_SWIPE_THRESHOLD && Math.abs(dy) > Math.abs(dx)) {
+          if (dy < 0) nextVideo(); else prevVideo();
+          return;
+        }
+
+        if (!lastTouchMoved && Math.abs(dx) <= TOUCH_TAP_MAX_MOVE && Math.abs(dy) <= TOUCH_TAP_MAX_MOVE) {
+          toggleUI();
+        }
+      }, { passive: true });
+
+      rootEl.addEventListener('click', (e) => {
+        if (settingsOverlay.classList.contains('show')) return;
+        if (e.target.closest('.fbAction')) return;
+        toggleUI();
+      });
+    }
+
     function attachActiveStateHandler(playerRef) {
       return function(event) {
         if (!window.YT || playerRef !== activePlayer) return;
@@ -514,6 +560,7 @@
       if (video.type === 'facebook') {
         touchSurfaceEl.classList.add('passThrough');
         renderFacebookFallback(activeLayerEl, video);
+        bindFacebookFallbackGestures(activeLayerEl.querySelector('.fallbackScreen'));
         const fbAction = activeLayerEl.querySelector('.fbAction');
         if (fbAction) {
           fbAction.addEventListener('click', (e) => {
