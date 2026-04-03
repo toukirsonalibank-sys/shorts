@@ -105,6 +105,7 @@
     #touchSurface {
       position: absolute; inset: 0; z-index: 10; background: transparent;
     }
+    #touchSurface.passThrough { pointer-events: none; }
 
     .overlay {
       position: absolute; inset: 0; z-index: 50; background: rgba(0,0,0,.45);
@@ -511,12 +512,22 @@
       activeLayerEl.innerHTML = '';
 
       if (video.type === 'facebook') {
+        touchSurfaceEl.classList.add('passThrough');
         renderFacebookFallback(activeLayerEl, video);
+        const fbAction = activeLayerEl.querySelector('.fbAction');
+        if (fbAction) {
+          fbAction.addEventListener('click', (e) => {
+            e.stopPropagation();
+            try { window.location.href = video.url; } catch {}
+          });
+        }
         transitionLock = false;
         preloadNext();
         showUI(true);
         return;
       }
+
+      touchSurfaceEl.classList.remove('passThrough');
 
       activeLayerEl.innerHTML = '<div id="playerActive"></div>';
       activePlayer = createPlayer(
